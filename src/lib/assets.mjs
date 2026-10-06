@@ -73,6 +73,8 @@ export const nodeTagIcon = (tag) => (tag ? assetUrl(`${ROGUE_UI}/dungeon/img_tag
 export const nodeActiveIcon = (key) => (key ? assetUrl(`${ROGUE_UI}/dungeon/img_${key}_active.png`) : null);
 /** dungeon 폴더의 임의 이미지 */
 export const dungeonImage = (name) => (name ? assetUrl(`${ROGUE_UI}/dungeon/${name}.png`) : null);
+/** 전투 스테이지 맵 프리뷰 (arts/ui/stage/mappreviews/<stageId>.png) */
+export const stageMapPreview = (stageId) => (stageId ? assetUrl(`arts/ui/stage/mappreviews/${stageId}.png`) : null);
 /** 희귀도 띠 */
 export const rarityIcon = (n) => assetUrl(`${ROGUE_UI}/rarity/rarity_${n}.png`);
 /** 외부 버프 아이콘 */

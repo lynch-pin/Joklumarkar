@@ -36,6 +36,7 @@ import {
   rarityIcon,
   hasAssetIndex,
   ASSET_BASE,
+  stageMapPreview,
 } from '../src/lib/assets.mjs';
 import { richTextToHtml, stripRichText, parseStoryWithMeta } from '../src/lib/story-parser.mjs';
 import { NODE_ICON, NODE_PSEUDO } from '../src/lib/themes.mjs';
@@ -557,6 +558,7 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
       isBoss: Boolean(s.isBoss),
       isElite: Boolean(s.isElite),
       difficulty: s.difficulty ?? null,
+      mapPreview: stageMapPreview(s.id),
       };
     });
 

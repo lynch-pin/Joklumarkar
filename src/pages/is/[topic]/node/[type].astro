@@ -5,7 +5,8 @@
 import Layout from '../../../../layouts/Layout.astro';
 import TopicHero from '../../../../components/TopicHero.astro';
 import SceneCard from '../../../../components/SceneCard.astro';
-import { loadTopics, loadScenes } from '../../../../lib/data.mjs';
+import StageCard from '../../../../components/StageCard.astro';
+import { loadTopics, loadScenes, loadStages } from '../../../../lib/data.mjs';
 
 export function getStaticPaths() {
   return loadTopics().flatMap((t) => Object.values(t.nodeTypes).map((nt: any) => ({ params: { topic: t.id, type: nt.key }, props: { topic: t, type: nt } })));
@@ -15,6 +16,9 @@ const { scenes, groups } = loadScenes(topic.id);
 const gs = groups.filter((g: any) => g.nodeType === type.key);
 const zonesWith = topic.zones.filter((z: any) => z.nodeTypes.includes(type.key));
 const others = Object.values(topic.nodeTypes).filter((t: any) => t.entryCount > 0);
+// 전투 노드면 이벤트 대신 스테이지(맵 프리뷰)를 보여 준다
+const kind = type.key === 'BATTLE_BOSS' ? 'boss' : type.key === 'BATTLE_ELITE' ? 'elite' : type.key === 'BATTLE_NORMAL' ? 'normal' : null;
+const kindStages = kind ? loadStages(topic.id).filter((s: any) => s.kind === kind) : [];
 ---
 
 <Layout title={`${type.name} · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={type.description}>
@@ -50,6 +54,19 @@ const others = Object.values(topic.nodeTypes).filter((t: any) => t.entryCount > 
       </div>
     ) : (
       <p class="muted">이 종류로 분류된 이벤트 장면이 없습니다. {type.key.startsWith('BATTLE') && <a href={`/is/${topic.id}/stages`}>전투 목록 보기</a>}</p>
+    )}
+    {kindStages.length > 0 && (
+      <section>
+        <div class="section-head">
+          <h2>스테이지 <span class="muted small sans">{kindStages.length}</span></h2>
+          <a class="more" href={`/is/${topic.id}/stages#${kind}`}>층별로 보기 →</a>
+        </div>
+        <div class="grid">
+          {kindStages.map((s: any) => (
+            <StageCard stage={s} />
+          ))}
+        </div>
+      </section>
     )}
     <p class="small muted sans note">노드 종류 대응은 장면 id 규칙으로 추정한 것이라 실제 게임과 다를 수 있습니다. 보정은 저장소의 overrides/scene-node.json 에서.</p>
   </div>

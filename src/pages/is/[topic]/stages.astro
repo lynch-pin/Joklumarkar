@@ -1,9 +1,10 @@
 ---
 /**
- * /is/<topic>/stages — 전투 노드 목록 (이름 + 설명 + 보스/긴급 여부)
+ * /is/<topic>/stages — 전투 노드 목록. 종류별(보스/긴급/작전)로 나누고, 층이 확정된 스테이지는 층별로 묶어 맵 프리뷰 카드로 보여 준다.
  */
 import Layout from '../../../layouts/Layout.astro';
 import TopicHero from '../../../components/TopicHero.astro';
+import StageCard from '../../../components/StageCard.astro';
 import { loadTopics, loadStages } from '../../../lib/data.mjs';
 
 export function getStaticPaths() {
@@ -12,10 +13,22 @@ export function getStaticPaths() {
 const { topic } = Astro.props;
 const stages = loadStages(topic.id);
 const kinds = [
-  { key: 'boss', label: '보스 (험난한 길)', icon: topic.nodeTypes.BATTLE_BOSS?.tag, list: stages.filter((s: any) => s.isBoss) },
-  { key: 'elite', label: '긴급 작전', icon: topic.nodeTypes.BATTLE_ELITE?.tag, list: stages.filter((s: any) => !s.isBoss && s.isElite) },
-  { key: 'normal', label: '작전', icon: topic.nodeTypes.BATTLE_NORMAL?.tag, list: stages.filter((s: any) => !s.isBoss && !s.isElite) },
+  { key: 'boss', label: '보스 (험난한 길)', icon: topic.nodeTypes.BATTLE_BOSS?.tag, list: stages.filter((s: any) => s.kind === 'boss') },
+  { key: 'elite', label: '긴급 작전', icon: topic.nodeTypes.BATTLE_ELITE?.tag, list: stages.filter((s: any) => s.kind === 'elite') },
+  { key: 'normal', label: '작전', icon: topic.nodeTypes.BATTLE_NORMAL?.tag, list: stages.filter((s: any) => s.kind === 'normal') },
 ];
+// 층별 묶음: zoneHint 있는 것은 층 순서대로, 없는 것은 "층 미정" 으로
+const byFloor = (list: any[]) => {
+  const out: { label: string; href: string | null; list: any[] }[] = [];
+  topic.zones.forEach((z: any, i: number) => {
+    const l = list.filter((s: any) => s.zoneHint === z.id);
+    if (l.length) out.push({ label: `${i + 1}F ${z.name}`, href: `/is/${topic.id}/zone/${z.id}`, list: l });
+  });
+  const rest = list.filter((s: any) => !topic.zones.some((z: any) => z.id === s.zoneHint));
+  if (rest.length) out.push({ label: '층 미정 · 특수 전투', href: null, list: rest });
+  return out;
+};
+const previewCount = stages.filter((s: any) => s.mapPreview).length;
 ---
 
 <Layout title={`전투 · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} 전투 노드 ${stages.length}개`}>
@@ -23,6 +36,7 @@ const kinds = [
   <div class="container">
     <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span>전투</span></p>
     <h1>전투 노드 <span class="muted small sans">{stages.length}</span></h1>
+    {previewCount === 0 && <p class="small muted sans">이 테마의 맵 프리뷰는 에셋 미러에 아직 없습니다. 이름과 설명만 표시합니다.</p>}
     <div class="shortcuts">
       {kinds.map((k) => (
         <a href={`#${k.key}`}>{k.label} <span class="muted">{k.list.length}</span></a>
@@ -33,21 +47,18 @@ const kinds = [
         <div class="section-head">
           <h2>{k.label} {k.icon && <img class="tagimg tagimg--lg" src={k.icon} alt="" loading="lazy" decoding="async" />}</h2>
         </div>
-        <table class="data">
-          <thead><tr><th>코드</th><th>이름</th><th>설명</th></tr></thead>
-          <tbody>
-            {k.list.map((s: any) => (
-              <tr id={s.id}>
-                <td class="sans small muted nowrap">{s.code}</td>
-                <td class="nowrap"><b>{s.name}</b><br /><code class="small muted">{s.id}</code></td>
-                <td>
-                  {s.description}
-                  {s.eliteDesc && <div class="elite small">⚠ {s.eliteDesc}</div>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {byFloor(k.list).map((f) => (
+          <details class="floorsec" open>
+            <summary class="sans">
+              {f.href ? <a href={f.href}>{f.label}</a> : f.label} <span class="muted small">{f.list.length}</span>
+            </summary>
+            <div class="grid">
+              {f.list.map((s: any) => (
+                <StageCard stage={s} />
+              ))}
+            </div>
+          </details>
+        ))}
       </section>
     ))}
   </div>
@@ -62,20 +73,15 @@ const kinds = [
     align-items: center;
     gap: 0.4rem;
   }
-  .nowrap {
-    white-space: nowrap;
+  .floorsec {
+    margin-bottom: 0.75rem;
   }
-  .elite {
-    color: var(--color-lose);
-    margin-top: 0.2rem;
+  .floorsec summary {
+    cursor: pointer;
+    padding: 0.4rem 0;
+    font-weight: 600;
   }
-  @media (max-width: 600px) {
-    .nowrap {
-      white-space: normal;
-    }
-    table.data th:first-child,
-    table.data td:first-child {
-      display: none;
-    }
+  .floorsec .grid {
+    margin: 0.4rem 0 0.5rem;
   }
 </style>

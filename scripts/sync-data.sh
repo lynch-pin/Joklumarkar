@@ -60,6 +60,7 @@ git -C "$ASSET_DIR" ls-tree -r --name-only HEAD -- \
   assets/torappu/dynamicassets/avg/images \
   assets/torappu/dynamicassets/avg/backgrounds \
   assets/torappu/dynamicassets/arts/ui/rogueliketopic \
+  assets/torappu/dynamicassets/arts/ui/stage/mappreviews \
   > "$ASSET_INDEX"
 echo "[sync] 에셋 인덱스: $(wc -l < "$ASSET_INDEX") 개 경로"
 du -sh "$GAMEDATA_DIR"

@@ -40,8 +40,9 @@ src/
     SceneCard / TopicHero / StoryReader
   pages/
     /                          테마 카드 (CN 전용 테마는 접힘)
-    /is/<topic>                구역(가상 노드 맵) + 노드 종류 + 난이도 + 분대
-    /is/<topic>/zone/<zone>    구역 상세 → 종류별 이벤트 카드
+    /is/<topic>                층(구역) 입장 카드 + 노드 종류 한 줄
+    /is/<topic>/zone/<zone>    층 입구: 이 층의 노드 목록
+    /is/<topic>/zone/<zone>/<type>  층 안의 노드 하나: 전투면 맵 프리뷰 카드, 아니면 층 전용 → 공통 이벤트
     /is/<topic>/node/<type>    노드 종류별 이벤트 전체
     /is/<topic>/events         이벤트 전체 (종류·제목 필터)
     /is/<topic>/scene/<id>     이벤트 상세 (핵심 화면)

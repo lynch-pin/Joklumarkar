@@ -1,0 +1,135 @@
+---
+/**
+ * /is/<topic>/zone/<zone>/<type> — 층 안의 노드 하나.
+ *   전투 노드: 이 층의 스테이지(맵 프리뷰 + 이름 + 설명)
+ *   그 외:     이 층 전용 이벤트(포탈·엔딩 직전 등) → 공통 이벤트(종류에 묶여 다른 층에서도 나옴)
+ */
+import Layout from '../../../../../layouts/Layout.astro';
+import TopicHero from '../../../../../components/TopicHero.astro';
+import SceneCard from '../../../../../components/SceneCard.astro';
+import StageCard from '../../../../../components/StageCard.astro';
+import { loadTopics, loadScenes, loadStages } from '../../../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().flatMap((t) => {
+    const zones = [...t.zones.map((z: any, i: number) => ({ z, floor: i + 1 })), ...t.specialZones.map((z: any) => ({ z, floor: 0 }))];
+    return zones.flatMap(({ z, floor }) =>
+      z.nodeTypes
+        .filter((k: string) => t.nodeTypes[k])
+        .map((k: string) => ({ params: { topic: t.id, zone: z.id, node: k }, props: { topic: t, zone: z, floor, type: t.nodeTypes[k] } })),
+    );
+  });
+}
+const { topic, zone, floor, type } = Astro.props;
+const { scenes, groups } = loadScenes(topic.id);
+const stages = loadStages(topic.id);
+const floorLabel = floor ? `${floor}F` : '특수';
+const base = `/is/${topic.id}/zone/${zone.id}/`;
+const siblings = zone.nodeTypes.map((k: string) => topic.nodeTypes[k]).filter(Boolean);
+
+const kind = type.key === 'BATTLE_BOSS' ? 'boss' : type.key === 'BATTLE_ELITE' ? 'elite' : type.key === 'BATTLE_NORMAL' ? 'normal' : null;
+const floorStages = kind ? stages.filter((s: any) => s.zoneHint === zone.id && s.kind === kind) : [];
+const own = groups.filter((g: any) => g.nodeType === type.key && g.zoneHint === zone.id);
+const common = groups.filter((g: any) => g.nodeType === type.key && g.zoneHint !== zone.id);
+const title = `${type.name} · ${floorLabel} ${zone.name} · ${topic.name}`;
+---
+
+<Layout title={title} topic={topic.id} topicName={topic.name} image={topic.kv} description={type.description}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs">
+      <span><a href={`/is/${topic.id}`}>{topic.name}</a></span>
+      <span><a href={`/is/${topic.id}/zone/${zone.id}`}>{floorLabel} {zone.name}</a></span>
+      <span>{type.name}</span>
+    </p>
+
+    <header class="nhead">
+      <h1>
+        {type.active && <img src={type.active} alt="" height="28" loading="eager" decoding="async" />}
+        {type.name}
+        {type.tag && <img class="tagimg tagimg--lg" src={type.tag} alt="" loading="eager" decoding="async" />}
+        <span class="badge badge--muted">{floorLabel} {zone.name}</span>
+      </h1>
+      <p>{type.description}</p>
+    </header>
+
+    <div class="shortcuts">
+      <span class="shortcuts__label">이 층의 노드</span>
+      {siblings.map((t: any) => (
+        <a href={`${base}${t.key}`} aria-current={t.key === type.key ? 'page' : undefined}>{t.name}</a>
+      ))}
+    </div>
+
+    {kind ? (
+      <section>
+        <div class="section-head">
+          <h2>이 층의 {type.name} <span class="muted small sans">{floorStages.length}</span></h2>
+          <a class="more" href={`/is/${topic.id}/stages#${kind}`}>테마 전체 전투 →</a>
+        </div>
+        {floorStages.length === 0 && (
+          <p class="muted small sans">
+            이 구역에 고정된 {type.name} 스테이지가 없습니다 (특수 구역이거나 스테이지 id 에 구역 번호가 없는 테마). <a href={`/is/${topic.id}/stages#${kind}`}>테마 전체 전투 목록</a>에서 확인하세요.
+          </p>
+        )}
+        <div class="grid">
+          {floorStages.map((s: any) => (
+            <StageCard stage={s} />
+          ))}
+        </div>
+      </section>
+    ) : (
+      <>
+        {own.length > 0 && (
+          <section class="own">
+            <div class="section-head">
+              <h2>이 층 전용 <span class="muted small sans">{own.length}</span></h2>
+              <span class="small muted sans">장면 id 에 층이 들어 있어 이 층에서만 나오는 이벤트</span>
+            </div>
+            <div class="grid">
+              {own.map((g: any) => (
+                <SceneCard group={g} scenes={scenes} topic={topic} showType={false} />
+              ))}
+            </div>
+          </section>
+        )}
+        <section>
+          <div class="section-head">
+            <h2>{own.length ? '공통 이벤트' : '이벤트'} <span class="muted small sans">{common.length}</span></h2>
+            <span class="small muted sans">{type.name} 노드에 묶인 이벤트. 같은 노드가 있는 다른 층에서도 나옵니다</span>
+          </div>
+          {common.length === 0 && <p class="muted small sans">이 노드 종류로 분류된 이벤트가 없습니다.</p>}
+          <div class="grid">
+            {common.map((g: any) => (
+              <SceneCard group={g} scenes={scenes} topic={topic} showType={false} />
+            ))}
+          </div>
+        </section>
+      </>
+    )}
+    <p class="small muted sans note">노드 종류 대응은 장면 id 규칙으로 추정한 것이라 실제 게임과 다를 수 있습니다.</p>
+  </div>
+</Layout>
+
+<style>
+  .nhead h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .nhead p {
+    margin: 0.2rem 0;
+  }
+  .own {
+    padding: 0 1rem 1rem;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-accent-soft) 40%, var(--color-card));
+  }
+  .own .section-head {
+    margin-top: 1rem;
+  }
+  .note {
+    margin-top: 2rem;
+  }
+</style>

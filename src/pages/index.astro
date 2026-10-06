@@ -70,20 +70,9 @@ const cn = topics.filter((t) => t.cnOnly && !t.translated);
       </details>
     )}
 
-    <section class="about card">
-      <h2>이 사이트가 하는 것 / 못 하는 것</h2>
-      <ul>
-        <li>이벤트 장면과 선택지, 그 결과 장면을 <strong>분기 트리</strong>로 따라갑니다. 장면↔선택지 대응은 id 규칙으로 복원했고, 현재 전 테마에서 매칭 실패 0건입니다.</li>
-        <li>구역별 등장 노드 종류는 데이터(<code>rollNodeData</code>)가 있는 테마(IS4, IS5)만 정확하고, 그 외는 테마 전체 종류를 공통으로 보여 줍니다.</li>
-        <li>어떤 이벤트가 어떤 노드에서 뜨는지는 데이터에 없어 장면 id 접두사로 <strong>추정</strong>합니다 (카드와 장면에 "추정" 표시).</li>
-        <li>실제 맵 배치, 이벤트 출현 확률, 확률 분기의 수치는 재현하지 않습니다. 전투 시뮬레이터가 아닙니다.</li>
-        <li>이미지는 저장하지 않고 에셋 미러에서 직접 불러오며, IS5(기이한 계원)와 IS6은 미러에 이미지가 없어 텍스트만 제공합니다.</li>
-        <li>IS6(흑류수해)은 중국 서버 선행 테마라 한국어 데이터가 없습니다. 이 사이트의 한국어 텍스트는 <strong>비공식 번역</strong>이며, 고유명사와 효과 문구가 추후 공식 한국어판과 다를 수 있습니다. 번역되지 않은 문장은 중국어 원문 그대로 둡니다.</li>
-      </ul>
-      <p class="small muted sans">
-        데이터: ArknightsGamedata <code>{meta.gamedataCommit ?? '-'}</code> · 생성 {meta.generatedAt.slice(0, 10)} · 장면 {meta.counts.scenes.toLocaleString()} / 선택지 {meta.counts.choices.toLocaleString()} / 컷신 {meta.counts.cutscenes}
-      </p>
-    </section>
+    <p class="small muted sans datameta">
+      데이터: ArknightsGamedata <code>{meta.gamedataCommit ?? '-'}</code> · 생성 {meta.generatedAt.slice(0, 10)} · IS6 한국어는 비공식 번역
+    </p>
   </div>
 </Layout>
 
@@ -176,14 +165,7 @@ const cn = topics.filter((t) => t.cnOnly && !t.translated);
     font-size: 0.9rem;
     margin-bottom: 0.75rem;
   }
-  .about {
+  .datameta {
     margin-top: 2rem;
-  }
-  .about ul {
-    padding-left: 1.2rem;
-    margin: 0.25rem 0 0.75rem;
-  }
-  .about li {
-    margin: 0.25rem 0;
   }
 </style>

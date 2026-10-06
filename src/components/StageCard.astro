@@ -1,0 +1,70 @@
+---
+/**
+ * src/components/StageCard.astro — 전투 스테이지 카드. 맵 프리뷰(핫링크) + 이름 + 설명.
+ * 프리뷰가 미러에 없는 테마(IS5·IS6)는 자리 표시 블록을 보여 준다. 맵 코드(id)는 표시하지 않는다.
+ */
+interface Props {
+  stage: any;
+  compact?: boolean;
+}
+const { stage: s, compact = false } = Astro.props;
+---
+
+<article class:list={['stage card', { 'stage--compact': compact }]} id={s.id}>
+  {s.mapPreview ? (
+    <img class="stage__map" src={s.mapPreview} alt={`${s.name} 맵 프리뷰`} loading="lazy" decoding="async" />
+  ) : (
+    <div class="stage__map stage__map--ph sans small muted">맵 프리뷰 미확보</div>
+  )}
+  <div class="stage__body">
+    <div class="stage__head">
+      <b>{s.name}</b>
+      {s.kind === 'boss' && <span class="badge">보스</span>}
+      {s.kind === 'elite' && <span class="badge badge--warn">긴급</span>}
+    </div>
+    {!compact && <p class="stage__desc small" set:html={s.descHtml ?? s.description} />}
+    {s.eliteDesc && <p class="stage__elite small">⚠ {s.eliteDesc}</p>}
+  </div>
+</article>
+
+<style>
+  .stage {
+    padding: 0;
+    overflow: hidden;
+    scroll-margin-top: 4rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .stage__map {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: var(--color-hero);
+    border-bottom: 1px solid var(--color-line);
+  }
+  .stage__map--ph {
+    display: grid;
+    place-items: center;
+    background: var(--color-card-2);
+  }
+  .stage__body {
+    padding: 0.7rem 0.9rem 0.8rem;
+  }
+  .stage__head {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .stage__desc {
+    margin: 0.35rem 0 0;
+  }
+  .stage__elite {
+    margin: 0.25rem 0 0;
+    color: var(--color-lose);
+  }
+  .stage--compact .stage__map {
+    aspect-ratio: 2 / 1;
+  }
+</style>
