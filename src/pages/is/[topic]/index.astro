@@ -33,7 +33,7 @@ const eventTypes = allTypes.filter((t: any) => t.entryCount > 0);
     <div class="section-head">
       <h2>구역</h2>
       <span class="small muted sans">
-        {topic.zones.some((z: any) => z.nodeTypesSource === 'data') ? '구역별 등장 노드 종류 (게임 데이터 rollNodeData)' : '이 테마는 구역별 노드 데이터가 없어 전체 종류를 공통으로 표시'}
+        {topic.zones.some((z: any) => z.nodeTypesSource === 'data') ? '구역별 등장 노드 종류는 게임 데이터(rollNodeData) 기준' : '이 테마는 구역별 노드 데이터가 없어 전체 종류를 공통으로 표시'} · 층별 전투와 층 전용 이벤트는 구역 페이지에
       </span>
     </div>
     <ol class="list-plain zones">
@@ -46,8 +46,11 @@ const eventTypes = allTypes.filter((t: any) => t.entryCount > 0);
               {z.isHidden && <span class="badge badge--muted">숨겨진 구역</span>}
             </a>
             <p class="zone__desc">{z.description}</p>
+            <span class="zone__stats sans small muted">
+              {z.stageCount ? `전투 ${z.stageCount}` : ''}{z.stageCount && z.floorEventCount ? ' · ' : ''}{z.floorEventCount ? `층 전용 이벤트 ${z.floorEventCount}` : ''}{!z.stageCount && !z.floorEventCount ? '층 고정 데이터 없음' : ''}
+            </span>
           </div>
-          <NodeMap types={typesOf(z.nodeTypes)} hrefBase={`/is/${topic.id}/zone/${z.id}#`} ui={meta.ui} compact showCount={false} />
+          <NodeMap types={typesOf(z.nodeTypes)} hrefBase={`/is/${topic.id}/zone/${z.id}#common-`} ui={meta.ui} compact showCount={false} />
         </li>
       ))}
     </ol>
@@ -69,7 +72,7 @@ const eventTypes = allTypes.filter((t: any) => t.entryCount > 0);
                 </a>
                 <p class="zone__desc">{z.description}</p>
               </div>
-              <NodeMap types={typesOf(z.nodeTypes)} hrefBase={`/is/${topic.id}/zone/${z.id}#`} ui={meta.ui} compact showCount={false} />
+              <NodeMap types={typesOf(z.nodeTypes)} hrefBase={`/is/${topic.id}/zone/${z.id}#common-`} ui={meta.ui} compact showCount={false} />
             </li>
           ))}
         </ol>
@@ -185,6 +188,9 @@ const eventTypes = allTypes.filter((t: any) => t.entryCount > 0);
     font-size: 0.9rem;
     color: var(--color-muted);
     flex: 1 1 20rem;
+  }
+  .zone__stats {
+    white-space: nowrap;
   }
   .zone__floor--sp {
     border-color: var(--color-muted);

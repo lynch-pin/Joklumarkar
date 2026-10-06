@@ -1,7 +1,7 @@
 ---
 /**
  * src/components/SceneTree.astro — 이벤트 분기 트리 뷰어.
- * 진입 장면을 루트로 SceneNode 를 렌더링하고, 선택지 클릭 → 결과 장면 펼치기 / 점프 / 전부 펼치기·접기 동작을 붙인다.
+ * 진입 장면을 루트로 SceneNode 를 렌더링하고, 선택지 토글(열기/닫기) / 점프 / 전부 펼치기·접기 동작을 붙인다.
  */
 import SceneNode from './SceneNode.astro';
 
@@ -26,10 +26,10 @@ const rendered = new Map<string, string>();
 
 <div class="scene-tree" id="scene-tree">
   <div class="scene-tree__tools sans small">
-    <span class="muted">선택지를 누르면 결과 장면이 아래에 펼쳐집니다. 장면 {total}개</span>
+    <span class="muted">선택지를 누르면 그 아래에 결과가 열리고, 다시 누르면 닫힙니다. 장면 {total}개</span>
     <span class="scene-tree__btns">
       <button type="button" data-expand="all">전부 펼치기</button>
-      <button type="button" data-expand="none">접기</button>
+      <button type="button" data-expand="none">전부 접기</button>
     </span>
   </div>
   <SceneNode scene={root} scenes={scenes} topic={topic} path="r" rendered={rendered} />
@@ -38,11 +38,18 @@ const rendered = new Map<string, string>();
 <script>
   const tree = document.getElementById('scene-tree');
   if (tree) {
-    // 요소가 보이도록 상위 .result 패널을 전부 연다
+    const setOpen = (btn: HTMLElement | null, panel: HTMLElement | null, open: boolean) => {
+      if (panel) panel.hidden = !open;
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    // 요소가 보이도록 상위 .result 패널을 전부 열고, 대응하는 버튼 상태도 맞춘다
     const revealPath = (el: HTMLElement | null) => {
       let cur: HTMLElement | null = el;
       while (cur && cur !== tree) {
-        if (cur.classList.contains('result')) cur.hidden = false;
+        if (cur.classList.contains('result')) {
+          const btn = cur.parentElement?.querySelector<HTMLElement>(':scope > button.choice') ?? null;
+          setOpen(btn, cur, true);
+        }
         cur = cur.parentElement;
       }
     };
@@ -56,12 +63,7 @@ const rendered = new Map<string, string>();
           location.href = btn.dataset.link;
           return;
         }
-        const article = btn.closest<HTMLElement>('article.sn');
-        const list = btn.closest('ol.choices');
-        const results = article ? (Array.from(article.children).find((el) => el.classList.contains('results')) as HTMLElement | undefined) : undefined;
-        list?.querySelectorAll<HTMLElement>('button.choice').forEach((b) => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
         if (btn.dataset.jump) {
-          // 이미 그려진 장면으로 점프
           const to = document.getElementById(btn.dataset.jump);
           if (to) {
             revealPath(to);
@@ -69,20 +71,19 @@ const rendered = new Map<string, string>();
           }
           return;
         }
-        if (!results) return;
-        Array.from(results.children).forEach((p) => ((p as HTMLElement).hidden = true));
-        const show = btn.dataset.panel ? document.getElementById(btn.dataset.panel) : results.querySelector<HTMLElement>('.endnote');
-        if (show) {
-          show.hidden = false;
-          scrollTo(show);
-        }
+        const panel = btn.getAttribute('aria-controls') ? document.getElementById(btn.getAttribute('aria-controls')!) : null;
+        if (!panel) return;
+        setOpen(btn, panel, panel.hidden);
         return;
       }
       const tool = target.closest<HTMLElement>('button[data-expand]');
       if (tool) {
         const all = tool.dataset.expand === 'all';
-        tree.querySelectorAll<HTMLElement>('.result').forEach((p) => (p.hidden = !all || p.classList.contains('endnote')));
-        tree.querySelectorAll<HTMLElement>('button.choice').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+        tree.querySelectorAll<HTMLElement>('.result').forEach((p) => {
+          const open = all && !p.classList.contains('endnote');
+          const btn = p.parentElement?.querySelector<HTMLElement>(':scope > button.choice') ?? null;
+          setOpen(btn, p, open);
+        });
       }
     });
 

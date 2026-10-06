@@ -52,8 +52,8 @@ export const THEMES = {
     heroGradient: 'linear-gradient(160deg, #1a0e0c 0%, #5c1e18 50%, #12302a 100%)',
   },
   rogue_6: {
-    short: '黑流树海',
-    motif: '수해 · 검은 물길',
+    short: '흑류수해',
+    motif: '볼리바르 · 수해 · 검은 물길',
     accent: '#6fbf73',
     accent2: '#3f8a5a',
     ornament: '❦',

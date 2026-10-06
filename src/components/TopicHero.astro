@@ -18,7 +18,8 @@ const theme = themeOf(topic.id);
   <div class="hero__inner container">
     <p class="hero__kicker sans">
       <span class="hero__orn">{theme.ornament}</span> 통합전략 #{topic.index} · {theme.motif}
-      {topic.cnOnly && <span class="badge badge--warn">{LOCALE_LABELS[topic.locale]} 전용 · 한국어 없음</span>}
+      {topic.cnOnly && topic.translated && <span class="badge badge--warn" title="중국 서버 선행 테마입니다. 한국어 텍스트는 이 사이트의 비공식 번역이며 공식 명칭과 다를 수 있습니다">{LOCALE_LABELS[topic.locale]} 선행 · 비공식 번역</span>}
+      {topic.cnOnly && !topic.translated && <span class="badge badge--warn">{LOCALE_LABELS[topic.locale]} 전용 · 한국어 없음</span>}
       {!topic.hasImages && !topic.cnOnly && <span class="badge badge--warn" title="에셋 미러에 이 테마 이미지가 아직 없습니다">이미지 미확보</span>}
     </p>
     <h1 class="hero__title">{topic.name}</h1>

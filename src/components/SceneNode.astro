@@ -1,9 +1,10 @@
 ---
 /**
- * src/components/SceneNode.astro — 이벤트 장면 하나(삽화 + 본문 + 선택지)와, 선택지 아래 접혀 있는 결과 장면들을 재귀 렌더링.
+ * src/components/SceneNode.astro — 이벤트 장면 하나(삽화 + 본문 + 선택지)를 그리고,
+ * 각 선택지 바로 아래에 그 결과 장면을 접어 둔다(토글). 선택지를 누르면 열리고, 다시 누르면 닫힌다.
  *
  * 한 페이지 안에서 같은 장면은 한 번만 그린다(`rendered` 공유 맵). 이미 그려진 장면으로 이어지는 선택지는
- * 그 패널로 점프(data-jump)한다 — 자기 자신으로 돌아오는 선택지나 두 선택지가 같은 결과를 가리키는 경우를 처리.
+ * 그 패널을 열고 그리로 이동한다(data-jump) — 자기 자신으로 돌아오는 선택지나 두 선택지가 같은 결과를 가리키는 경우.
  *
  * props:
  *   scene      scenes/<topic>.json 의 장면 객체
@@ -30,113 +31,117 @@ const MAX_SCENES = 80; // 한 페이지에 인라인으로 그릴 장면 수 상
 const nodeType = topic.nodeTypes?.[scene.nodeType] ?? null;
 if (!rendered.has(scene.id)) rendered.set(scene.id, `sn-${path}`);
 
-// 이 장면 아래에 새로 그릴 결과 장면들. 이미 그려진(또는 그리기로 예약된) 장면은 점프 대상으로만 둔다.
-const panels: { next: string; id: string }[] = [];
-const panelIdFor = new Map<string, string>(); // next → 패널 id (새로 그리는 것)
-const jumpFor = new Map<string, string>(); // next → 기존 패널/장면 id (점프)
+// 선택지별 결과 패널 결정: 새로 그릴 것(panel) / 이미 그려진 곳으로 점프(jump) / 자체 페이지 링크(link)
+const panelIdFor = new Map<string, string>(); // next → 이 장면 아래에 새로 그리는 패널 id
+const jumpFor = new Map<string, string>(); // next → 기존 패널 id
 scene.choices.forEach((c: any, i: number) => {
   if (!c.next || !scenes[c.next] || panelIdFor.has(c.next) || jumpFor.has(c.next)) return;
   if (rendered.has(c.next)) {
     jumpFor.set(c.next, rendered.get(c.next)!);
     return;
   }
-  if (depth >= MAX_DEPTH || rendered.size >= MAX_SCENES) return; // 너무 깊거나 많으면 그 장면의 자체 페이지로 링크
+  if (depth >= MAX_DEPTH || rendered.size >= MAX_SCENES) return;
   const id = `${path}-${i}`;
   panelIdFor.set(c.next, id);
   rendered.set(c.next, `sn-${id}`);
-  panels.push({ next: c.next, id });
+});
+// 같은 결과를 가리키는 두 번째 이후 선택지는 첫 번째 선택지의 패널을 토글한다
+const ownerOf = new Map<string, number>();
+scene.choices.forEach((c: any, i: number) => {
+  if (c.next && panelIdFor.has(c.next) && !ownerOf.has(c.next)) ownerOf.set(c.next, i);
 });
 const hasChoices = scene.choices.length > 0;
-const endNoteId = `${path}-end`;
 ---
 
 <article class="sn" id={`sn-${path}`} data-scene={scene.id} data-depth={depth}>
-  {depth > 0 && <div class="sn__arrow" aria-hidden="true">▼</div>}
-  <figure class="sn__figure">
-    {scene.image ? (
-      <img class="sn__img" src={scene.image} alt="" loading={depth === 0 ? 'eager' : 'lazy'} decoding="async" />
-    ) : (
-      <div class="sn__img sn__img--placeholder">
-        {nodeType?.active && <img src={nodeType.active} alt="" height="40" loading="lazy" decoding="async" />}
-        <span>삽화 미확보 — 에셋 미러에 이 테마 이미지가 아직 없습니다</span>
-      </div>
-    )}
-    <figcaption class="sn__caption">
-      {nodeType && (
-        <span class="sn__type">
-          {nodeType.name}
-          {nodeType.tag && <img class="tagimg tagimg--onimage" src={nodeType.tag} alt="" loading="lazy" decoding="async" />}
-          {scene.nodeTypeSource !== 'data' && scene.nodeTypeSource !== 'override' && <span class="sn__guess" title="장면 id 규칙으로 추정한 노드 종류입니다">추정</span>}
-        </span>
+  <div class="sn__card">
+    <figure class="sn__figure">
+      {scene.image ? (
+        <img class="sn__img" src={scene.image} alt="" loading={depth === 0 ? 'eager' : 'lazy'} decoding="async" />
+      ) : (
+        <div class="sn__img sn__img--placeholder">
+          {nodeType?.active && <img src={nodeType.active} alt="" height="32" loading="lazy" decoding="async" />}
+          <span>삽화 미확보 — 에셋 미러에 이 테마 이미지가 아직 없습니다</span>
+        </div>
       )}
-      <a class="sn__id" href={`/is/${topic.id}/scene/${scene.id}`} title="이 장면만 따로 보기">{scene.id}</a>
-    </figcaption>
-  </figure>
+      <figcaption class="sn__caption">
+        {nodeType && (
+          <span class="sn__type">
+            {nodeType.name}
+            {nodeType.tag && <img class="tagimg tagimg--onimage" src={nodeType.tag} alt="" loading="lazy" decoding="async" />}
+            {scene.nodeTypeSource !== 'data' && scene.nodeTypeSource !== 'override' && <span class="sn__guess" title="장면 id 규칙으로 추정한 노드 종류입니다">추정</span>}
+          </span>
+        )}
+        <a class="sn__id" href={`/is/${topic.id}/scene/${scene.id}`} title="이 장면만 따로 보기">{scene.id}</a>
+      </figcaption>
+    </figure>
 
-  <div class="sn__panel">
-    <h2 class="sn__title">{scene.title || <span class="muted">(제목 없음)</span>}</h2>
-    <div class="sn__body" set:html={scene.html} />
+    <div class="sn__panel">
+      <h2 class="sn__title">{scene.title || <span class="muted">(제목 없음)</span>}</h2>
+      <div class="sn__body" set:html={scene.html} />
 
-    {hasChoices ? (
-      <ol class="choices list-plain">
-        {scene.choices.map((c: any) => {
-          const panel = c.next ? panelIdFor.get(c.next) : undefined;
-          const jump = c.next ? jumpFor.get(c.next) : undefined;
-          const link = c.next && !panel && !jump ? `/is/${topic.id}/scene/${c.next}` : undefined;
-          const self = c.next === scene.id;
-          return (
-            <li>
-              <button
-                type="button"
-                class:list={['choice', { 'choice--leave': c.isLeave, 'choice--end': !c.next }]}
-                data-panel={panel}
-                data-jump={jump}
-                data-link={link}
-                data-end={!c.next ? '' : undefined}
-                aria-pressed="false"
-              >
-                <span class="choice__icon">
-                  {c.icon ? <img src={c.icon} alt="" width="28" height="28" loading="lazy" decoding="async" /> : c.item?.icon ? <img src={c.item.icon} alt="" width="28" height="28" loading="lazy" decoding="async" /> : <span class="choice__dot" />}
-                </span>
-                <span class="choice__text">
-                  <span class="choice__title">{c.title || <span class="muted">…</span>}</span>
-                  {c.descHtml && <span class="choice__desc" set:html={c.descHtml} />}
-                  {c.lockedHtml && <span class="choice__locked" set:html={c.lockedHtml} />}
-                </span>
-                <span class="choice__meta">
-                  <span class="badge badge--muted">{CHOICE_TYPE_LABEL[c.type] ?? c.type}</span>
-                  {c.isProb && <span class="badge badge--warn" title="확률 분기. 확률값은 데이터에 없습니다">확률</span>}
-                  {!c.next ? (
-                    <span class="choice__go choice__go--end" aria-hidden="true" title="이 선택으로 이벤트 종료">■</span>
-                  ) : self ? (
-                    <span class="choice__go" aria-hidden="true" title="이 장면으로 돌아옴">↻</span>
-                  ) : jump ? (
-                    <span class="choice__go" aria-hidden="true" title="앞에 나온 장면으로 이어짐">↩</span>
-                  ) : (
-                    <span class="choice__go" aria-hidden="true">▸</span>
-                  )}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    ) : (
-      <p class="sn__end muted small sans">이 장면에서 이벤트가 끝난다.</p>
-    )}
-  </div>
-
-  <div class="results">
-    {hasChoices && (
-      <p class="result endnote muted small sans" id={endNoteId} hidden>
-        ■ 이 선택지로 이벤트가 끝난다 (이어지는 장면 없음).
-      </p>
-    )}
-    {panels.map(({ next, id }) => (
-      <div class="result" id={id} hidden>
-        <Astro.self scene={scenes[next]} scenes={scenes} topic={topic} path={id} rendered={rendered} depth={depth + 1} />
-      </div>
-    ))}
+      {hasChoices ? (
+        <ol class="choices list-plain">
+          {scene.choices.map((c: any, i: number) => {
+            const owner = c.next ? ownerOf.get(c.next) : undefined;
+            const panel = c.next && owner === i ? panelIdFor.get(c.next) : undefined;
+            const jump = c.next ? (owner !== undefined && owner !== i ? panelIdFor.get(c.next) : jumpFor.get(c.next)) : undefined;
+            const link = c.next && !panel && !jump ? `/is/${topic.id}/scene/${c.next}` : undefined;
+            const self = c.next === scene.id;
+            return (
+              <li class="choice-item">
+                <button
+                  type="button"
+                  class:list={['choice', { 'choice--leave': c.isLeave, 'choice--end': !c.next }]}
+                  data-panel={panel}
+                  data-jump={jump}
+                  data-link={link}
+                  data-end={!c.next ? '' : undefined}
+                  aria-expanded={panel || !c.next ? 'false' : undefined}
+                  aria-controls={panel ?? (!c.next ? `${path}-end-${i}` : undefined)}
+                >
+                  <span class="choice__icon">
+                    {c.icon ? <img src={c.icon} alt="" width="28" height="28" loading="lazy" decoding="async" /> : c.item?.icon ? <img src={c.item.icon} alt="" width="28" height="28" loading="lazy" decoding="async" /> : <span class="choice__dot" />}
+                  </span>
+                  <span class="choice__text">
+                    <span class="choice__title">{c.title || <span class="muted">…</span>}</span>
+                    {c.descHtml && <span class="choice__desc" set:html={c.descHtml} />}
+                    {c.lockedHtml && <span class="choice__locked" set:html={c.lockedHtml} />}
+                  </span>
+                  <span class="choice__meta">
+                    <span class="badge badge--muted">{CHOICE_TYPE_LABEL[c.type] ?? c.type}</span>
+                    {c.isProb && <span class="badge badge--warn" title="확률 분기. 확률값은 데이터에 없습니다">확률</span>}
+                    {!c.next ? (
+                      <span class="choice__go choice__go--end" aria-hidden="true" title="이 선택으로 이벤트 종료">■</span>
+                    ) : self ? (
+                      <span class="choice__go" aria-hidden="true" title="이 장면으로 돌아옴">↻</span>
+                    ) : jump ? (
+                      <span class="choice__go" aria-hidden="true" title="앞에 나온 장면으로 이어짐">↩</span>
+                    ) : link ? (
+                      <span class="choice__go" aria-hidden="true" title="별도 페이지로 이동">↗</span>
+                    ) : (
+                      <span class="choice__go choice__go--toggle" aria-hidden="true">▾</span>
+                    )}
+                  </span>
+                </button>
+                {!c.next && (
+                  <p class="result endnote muted small sans" id={`${path}-end-${i}`} hidden>
+                    ■ 이 선택지로 이벤트가 끝난다 (이어지는 장면 없음).
+                  </p>
+                )}
+                {panel && (
+                  <div class="result" id={panel} hidden>
+                    <Astro.self scene={scenes[c.next]} scenes={scenes} topic={topic} path={panel} rendered={rendered} depth={depth + 1} />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p class="sn__end muted small sans">이 장면에서 이벤트가 끝난다.</p>
+      )}
+    </div>
   </div>
 </article>
 
@@ -144,12 +149,11 @@ const endNoteId = `${path}-end`;
   .sn {
     position: relative;
   }
-  .sn__arrow {
-    text-align: center;
-    color: var(--color-accent);
-    opacity: 0.6;
-    font-size: 0.8rem;
-    margin: 0.25rem 0;
+  .sn__card {
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-card);
   }
   .sn__figure {
     margin: 0;
@@ -160,8 +164,12 @@ const endNoteId = `${path}-end`;
     width: 100%;
     aspect-ratio: 16 / 9;
     object-fit: cover;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     background: var(--color-card-2);
+  }
+  /* 결과 장면(중첩)은 삽화를 납작하게 — 트리를 따라 내려갈 때 스크롤을 줄인다 */
+  .sn[data-depth]:not([data-depth='0']) .sn__img {
+    aspect-ratio: 3 / 1;
+    max-height: 11rem;
   }
   .sn__img--placeholder {
     display: flex;
@@ -173,7 +181,10 @@ const endNoteId = `${path}-end`;
     color: rgba(255, 255, 255, 0.75);
     font-family: var(--font-sans);
     font-size: 0.8rem;
-    aspect-ratio: 21 / 9;
+    aspect-ratio: 3 / 1;
+    max-height: 9rem;
+    text-align: center;
+    padding: 0 1rem;
   }
   .sn__img--placeholder img {
     opacity: 0.8;
@@ -219,22 +230,21 @@ const endNoteId = `${path}-end`;
     text-decoration: none;
   }
   .sn__panel {
-    background: var(--color-card);
-    border: 1px solid var(--color-line);
-    border-top: 0;
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-    padding: 1.1rem 1.25rem 1.25rem;
+    padding: 1rem 1.1rem 1.1rem;
   }
   .sn__title {
-    font-size: 1.35rem;
-    margin: 0 0 0.6rem;
+    font-size: 1.3rem;
+    margin: 0 0 0.5rem;
     color: var(--color-accent);
     letter-spacing: 0.01em;
+  }
+  .sn[data-depth]:not([data-depth='0']) .sn__title {
+    font-size: 1.1rem;
   }
   .sn__body {
     font-size: 1rem;
     line-height: 1.85;
-    margin-bottom: 1rem;
+    margin-bottom: 0.9rem;
     overflow-wrap: anywhere;
   }
   .sn__end {
@@ -244,8 +254,8 @@ const endNoteId = `${path}-end`;
   .choices {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
   }
   .choice {
     width: 100%;
@@ -254,7 +264,7 @@ const endNoteId = `${path}-end`;
     align-items: center;
     gap: 0.75rem;
     text-align: left;
-    padding: 0.6rem 0.8rem;
+    padding: 0.55rem 0.8rem;
     border: 1px solid var(--color-line);
     border-left: 3px solid var(--color-accent);
     border-radius: var(--radius);
@@ -267,10 +277,14 @@ const endNoteId = `${path}-end`;
     border-color: var(--color-accent);
     background: var(--color-accent-soft);
   }
-  .choice[aria-pressed='true'] {
+  .choice[aria-expanded='true'] {
     background: var(--color-accent-soft);
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 1px var(--color-accent) inset;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .choice[aria-expanded='true'] .choice__go--toggle {
+    transform: rotate(180deg);
   }
   .choice--leave {
     border-left-color: var(--color-muted);
@@ -328,40 +342,40 @@ const endNoteId = `${path}-end`;
   .choice__go {
     color: var(--color-accent);
     font-size: 0.9rem;
+    display: inline-block;
+    transition: transform 0.15s;
   }
   .choice__go--end {
     color: var(--color-muted);
     font-size: 0.6rem;
   }
 
-  .results {
-    margin-left: 1.25rem;
-    border-left: 2px dashed var(--color-line);
-    padding-left: 0.9rem;
-  }
-  .results:empty {
-    display: none;
-  }
+  /* 선택지 바로 아래에 접혀 있는 결과 */
   .result {
-    margin-top: 0.75rem;
+    margin: 0 0 0.25rem;
+    border: 1px solid var(--color-accent);
+    border-top: 0;
+    border-radius: 0 0 var(--radius) var(--radius);
+    padding: 0.6rem 0.6rem 0.6rem 0.75rem;
+    background: color-mix(in srgb, var(--color-accent-soft) 35%, var(--color-card));
   }
   .result[hidden] {
     display: none;
   }
   .endnote {
-    margin: 0.6rem 0 0;
+    margin-top: 0;
   }
-  .sn:target > .sn__figure,
-  .sn:target > .sn__panel {
+  .sn:target > .sn__card {
     box-shadow: 0 0 0 2px var(--color-accent);
   }
 
   @media (max-width: 600px) {
     .sn__panel {
-      padding: 0.9rem 0.9rem 1rem;
+      padding: 0.85rem 0.8rem 0.9rem;
     }
     .choice {
       grid-template-columns: 2rem 1fr;
+      gap: 0.5rem;
     }
     .choice__meta {
       grid-column: 2;
@@ -369,9 +383,8 @@ const endNoteId = `${path}-end`;
       flex-wrap: wrap;
       white-space: normal;
     }
-    .results {
-      margin-left: 0.4rem;
-      padding-left: 0.5rem;
+    .result {
+      padding: 0.4rem 0.3rem 0.4rem 0.4rem;
     }
     .sn__id {
       display: none;

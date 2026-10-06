@@ -37,8 +37,8 @@ export const loadCutsceneIndex = () => loadJson('cutscenes-index.json');
 
 export const topicById = (id) => loadTopics().find((t) => t.id === id) ?? null;
 
-/** 기본 노출 테마 (CN 전용 테마는 제외) */
-export const visibleTopics = () => loadTopics().filter((t) => !t.cnOnly);
+/** 기본 노출 테마: KR 테마 + 비공식 번역이 있는 CN 전용 테마 */
+export const visibleTopics = () => loadTopics().filter((t) => !t.cnOnly || t.translated);
 
 /** 선택지 type 라벨 */
 export const CHOICE_TYPE_LABEL = {

@@ -43,6 +43,44 @@ import { NODE_ICON, NODE_PSEUDO } from '../src/lib/themes.mjs';
 const ROOT = process.cwd();
 const OUT = path.join(ROOT, 'src', 'data');
 const OVERRIDES = path.join(ROOT, 'overrides');
+const TRANSLATIONS = path.join(ROOT, 'translations', 'zh_CN');
+
+/**
+ * CN 전용 테마의 비공식 한국어 번역 캐시.
+ *   translations/zh_CN/<topic>/*.json  — { "<원문>": "<번역>" } 평면 객체. 파일은 이름순으로 합치며 뒤 파일이 앞을 덮는다
+ *                                        (auto-from-kr.json 이 먼저, 수동 파일이 나중).
+ *   translations/zh_CN/<topic>/stories/<cutsceneId>.json — { lines: [...] } 컷신 라인 번역 (텍스트 있는 줄 순서대로)
+ * 테마가 KR 에 실장되면 KR 데이터가 우선이므로 이 캐시는 자동으로 무시된다.
+ */
+function loadTranslation(topicId) {
+  const dir = path.join(TRANSLATIONS, topicId);
+  if (!fs.existsSync(dir)) return null;
+  const strings = {};
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
+    for (const [k, v] of Object.entries(readJson(path.join(dir, f)))) if (typeof v === 'string' && v) strings[k] = v;
+  }
+  const stats = { strings: Object.keys(strings).length, hit: 0, miss: 0, missed: new Map() };
+  // 원문의 CRLF 와 리터럴 \n(백슬래시+n) 을 모두 개행으로 맞춰 조회한다
+  const norm = (x) => x.replace(/\r\n/g, '\n').replace(/\\n/g, '\n');
+  const normalized = {};
+  for (const [k, v] of Object.entries(strings)) normalized[norm(k)] = v;
+  const tr = (text) => {
+    if (typeof text !== 'string' || !text.trim()) return text;
+    const t = strings[text] ?? strings[text.trim()] ?? normalized[norm(text)] ?? normalized[norm(text).trim()];
+    if (t !== undefined) {
+      stats.hit++;
+      return t;
+    }
+    stats.miss++;
+    stats.missed.set(text, (stats.missed.get(text) ?? 0) + 1);
+    return text;
+  };
+  const storyLines = (cutsceneId) => {
+    const f = path.join(dir, 'stories', `${cutsceneId}.json`);
+    return fs.existsSync(f) ? readJson(f).lines ?? null : null;
+  };
+  return { tr, stats, storyLines };
+}
 
 const log = (...a) => console.log('[process]', ...a);
 const warn = (...a) => console.warn('[process] ⚠', ...a);
@@ -195,6 +233,10 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
   const n = Number(topicId.replace(/\D/g, ''));
   const cnOnly = locale !== PRIMARY;
   log(`\n=== ${topicId} ${topic.name} (${locale}${cnOnly ? ', CN 전용' : ''}) ===`);
+  // CN 전용 테마면 비공식 번역 캐시 적용. 번역이 없으면 원문 그대로.
+  const translation = cnOnly ? loadTranslation(topicId) : null;
+  const tr = translation ? translation.tr : (x) => x;
+  if (translation) log(`번역 캐시 ${translation.stats.strings}개 문자열`);
 
   const nodeTypeData = detail.nodeTypeData ?? {};
   const nodeTypeKeys = new Set(Object.keys(nodeTypeData));
@@ -277,6 +319,24 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
     return cur;
   };
 
+  // 층(구역) 힌트: 포탈 장면은 id 숫자에 구역 번호가 들어 있고(portal0201a → 2층, nportal3 → 3층, portal5a → 5층),
+  // 엔딩 직전 장면은 마지막 번호 구역에서만 나온다. 그 외 이벤트는 구역에 묶여 있지 않다(데이터 없음).
+  const numberedZoneIds = Object.keys(detail.zones ?? {}).filter((z) => /^zone_\d+$/.test(z)).sort(naturalSort);
+  const lastZoneId = numberedZoneIds[numberedZoneIds.length - 1] ?? null;
+  const zoneHintFor = (sceneId, type) => {
+    if (type === 'ENDING') return lastZoneId;
+    const prefix = scenePrefix(sceneId);
+    if (!/^(portal|nportal)$/.test(prefix)) return null;
+    const base = sceneId.replace(/^scene_(ro\d_)?/, '').replace(/_(enter|\d+)$/, '');
+    const digits = base.match(/\d+/)?.[0];
+    if (!digits) return null;
+    const cands = digits.length >= 4 ? [digits.slice(0, 2), digits.slice(0, 1)] : [digits, digits.slice(0, 1)];
+    for (const c of cands) {
+      const id = `zone_${parseInt(c, 10)}`;
+      if (detail.zones?.[id]) return id;
+    }
+    return null;
+  };
   const classStats = { override: 0, data: 0, prefix: 0, default: 0, inherited: 0 };
   const unclassifiedPrefixes = new Map();
   const sceneOut = {};
@@ -314,35 +374,36 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
       const item = dd.itemId ? items[dd.itemId] : null;
       return {
         id: cid,
-        title: c.title ?? '',
-        descHtml: html(c.description),
-        lockedHtml: c.lockedCoverDesc ? html(c.lockedCoverDesc) : null,
+        title: tr(c.title ?? ''),
+        descHtml: html(tr(c.description)),
+        lockedHtml: c.lockedCoverDesc ? html(tr(c.lockedCoverDesc)) : null,
         type: c.type,
         isLeave: c.type === 'LEAVE',
         isProb: /_PROB/.test(c.type ?? ''),
         icon: choiceIcon(dd.funcIconId ?? c.icon) ?? null,
         iconId: dd.funcIconId ?? c.icon ?? null,
-        item: item ? { id: item.id, name: item.name, icon: itemIcon(item.iconId), rarity: item.rarity, type: item.type } : null,
+        item: item ? { id: item.id, name: tr(item.name), icon: itemIcon(item.iconId), rarity: item.rarity, type: item.type } : null,
         next: c.nextSceneId && scenes[c.nextSceneId] ? c.nextSceneId : null,
       };
     });
 
-    const text = plain(s.description);
+    const text = plain(tr(s.description));
     sceneOut[sceneId] = {
       id: sceneId,
-      title: s.title ?? '',
-      html: html(s.description),
+      title: tr(s.title ?? ''),
+      html: html(tr(s.description)),
       image,
       imageId: s.background ?? null,
       nodeType: cls.type,
       nodeTypeSource: cls.inherited ? 'inherited' : cls.source,
       isEntry,
+      zoneHint: zoneHintFor(root, cls.type),
       parent: parentOf.get(sceneId) ?? null,
       prefix: scenePrefix(sceneId),
       choices: choiceList,
     };
     if (isEntry) {
-      searchIndex.push({ t: topicId, id: sceneId, title: s.title ?? '', type: cls.type, text: text.slice(0, 160) });
+      searchIndex.push({ t: topicId, id: sceneId, title: tr(s.title ?? ''), type: cls.type, text: text.slice(0, 160) });
     }
   }
 
@@ -354,8 +415,8 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
   const groupMap = new Map();
   for (const id of entries) {
     const s = sceneOut[id];
-    const key = `${s.nodeType}|${s.prefix}|${s.title}`;
-    if (!groupMap.has(key)) groupMap.set(key, { key, title: s.title, prefix: s.prefix, nodeType: s.nodeType, ids: [] });
+    const key = `${s.nodeType}|${s.prefix}|${s.zoneHint ?? ''}|${s.title}`;
+    if (!groupMap.has(key)) groupMap.set(key, { key, title: s.title, prefix: s.prefix, nodeType: s.nodeType, zoneHint: s.zoneHint, ids: [] });
     groupMap.get(key).ids.push(id);
   }
   const groups = [...groupMap.values()];
@@ -394,7 +455,7 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
     };
   };
   for (const [key, v] of Object.entries(nodeTypeData)) {
-    nodeTypes[key] = { key, name: v.name, description: v.description ?? '', ...iconFor(key), sceneCount: sceneCountByType[key] ?? 0, entryCount: entryCountByType[key] ?? 0 };
+    nodeTypes[key] = { key, name: tr(v.name), description: plain(tr(v.description ?? '')), ...iconFor(key), sceneCount: sceneCountByType[key] ?? 0, entryCount: entryCountByType[key] ?? 0 };
   }
   for (const [key, v] of Object.entries(NODE_PSEUDO)) {
     if (sceneCountByType[key]) nodeTypes[key] = { key, ...v, ...iconFor(key), sceneCount: sceneCountByType[key], entryCount: entryCountByType[key] ?? 0, pseudo: true };
@@ -408,10 +469,10 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
   const zoneNodeTypes = (z) => (roll[z.id] ? Object.keys(roll[z.id].groups ?? {}) : Object.keys(nodeTypeData));
   const toZone = (z) => ({
     id: z.id,
-    name: z.name,
-    description: z.description ?? '',
-    endingDescription: z.endingDescription ?? '',
-    buffDescription: z.buffDescription ?? null,
+    name: tr(z.name),
+    description: tr(z.description ?? ''),
+    endingDescription: tr(z.endingDescription ?? ''),
+    buffDescription: z.buffDescription ? tr(z.buffDescription) : null,
     isHidden: Boolean(z.isHiddenZone),
     nodeTypes: zoneNodeTypes(z),
     nodeTypesSource: roll[z.id] ? 'data' : 'all',
@@ -425,7 +486,7 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
     .map(toZone);
   const specialMap = new Map();
   for (const z of allZones.filter((z) => !/^zone_\d+$/.test(z.id)).sort((a, b) => naturalSort(a.id, b.id))) {
-    const key = z.name;
+    const key = tr(z.name);
     if (!specialMap.has(key)) specialMap.set(key, { ...toZone(z), isSpecial: true, nodeTypes: [] });
     const g = specialMap.get(key);
     if (g.ids[0] !== z.id) {
@@ -437,6 +498,7 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
   }
   for (const g of specialMap.values()) if (!g.nodeTypes.length) g.nodeTypes = Object.keys(nodeTypeData);
   const specialZones = [...specialMap.values()];
+
   log(`구역 ${zones.length} + 특수 구역 ${allZones.length - zones.length}개 → ${specialZones.length}묶음, rollNodeData ${Object.keys(roll).length ? '있음' : '없음(전체 종류 공통)'}`);
 
   // ---- 엔딩 + 결말기록 -------------------------------------------------------
@@ -447,8 +509,8 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
       const eb = Object.values(endbooks).find((b) => b.endingId === e.id) ?? null;
       return {
         id: e.id,
-        name: e.name,
-        desc: e.desc ?? '',
+        name: tr(e.name),
+        desc: tr(e.desc ?? ''),
         image: avgImage(e.bgId),
         bgId: e.bgId,
         bossIconId: e.bossIconId ?? null,
@@ -456,39 +518,47 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
         cutsceneId: eb?.avgId ? eb.avgId.toLowerCase().replace(/^obt\//, 'obt/') : null,
         records: (eb?.clientEndbookItemDatas ?? []).map((r) => ({
           id: r.endBookId,
-          name: r.endbookName,
-          unlockDesc: r.unlockDesc ?? '',
+          name: tr(r.endbookName),
+          unlockDesc: tr(r.unlockDesc ?? ''),
           cutsceneId: r.textId ? r.textId.toLowerCase() : null,
         })),
       };
     });
-  const failEndings = Object.values(detail.failEndings ?? {}).map((e) => ({ id: e.id, name: e.name, desc: e.desc ?? '' }));
+  const failEndings = Object.values(detail.failEndings ?? {}).map((e) => ({ id: e.id, name: tr(e.name), desc: tr(e.desc ?? '') }));
 
   // ---- 난이도 / 분대 / 월간 분대 --------------------------------------------
   const difficulties = asList(detail.difficulties)
     .slice()
     .sort((a, b) => (a.sortId ?? 0) - (b.sortId ?? 0))
-    .map((d) => ({ grade: d.grade, name: d.name, subName: d.subName ?? '', ruleDesc: d.ruleDesc ?? '', color: d.color ?? null, mode: d.modeDifficulty }));
+    .map((d) => ({ grade: d.grade, name: tr(d.name), subName: tr(d.subName ?? ''), ruleDesc: tr(d.ruleDesc ?? ''), color: d.color ?? null, mode: d.modeDifficulty }));
   const bands = Object.values(items)
     .filter((i) => i.type === 'BAND')
-    .map((i) => ({ id: i.id, name: i.name, usage: plain(i.usage), icon: itemIcon(i.iconId) }));
+    .map((i) => ({ id: i.id, name: tr(i.name), usage: plain(tr(i.usage)), icon: itemIcon(i.iconId) }));
   const monthSquads = Object.values(detail.monthSquad ?? {})
     .sort((a, b) => naturalSort(a.id, b.id))
-    .map((m) => ({ id: m.id, chatId: m.chatId ?? null, name: m.teamName, subName: m.teamSubName ?? m.teamFlavorDesc ?? '', desc: m.teamDes ?? '', color: m.teamColor ? `#${m.teamColor}` : null, month: m.teamMonth, year: m.teamYear }));
+    .map((m) => ({ id: m.id, chatId: m.chatId ?? null, name: tr(m.teamName), subName: tr(m.teamSubName ?? m.teamFlavorDesc ?? ''), desc: tr(m.teamDes ?? ''), color: m.teamColor ? `#${m.teamColor}` : null, month: m.teamMonth, year: m.teamYear }));
 
   // ---- 전투 노드 -----------------------------------------------------------
   const stages = Object.values(detail.stages ?? {})
     .sort((a, b) => naturalSort(a.id, b.id))
-    .map((s) => ({
+    .map((s) => {
+      // roN_n_<zone>_<i> 일반, roN_e_<zone>_<i> 긴급, roN_b_<zone>[_x] 보스. 그 외(t_, ev_, duel, fs, sv …)는 특수 전투
+      const m = s.id.match(/^ro\d+_(n|e|b)_(\d+)/);
+      const zoneHint = m && detail.zones?.[`zone_${m[2]}`] ? `zone_${m[2]}` : null;
+      return {
       id: s.id,
+      zoneHint,
+      kind: s.isBoss ? 'boss' : s.isElite ? 'elite' : 'normal',
       code: (s.code ?? '').trim(),
-      name: s.name,
-      description: plain(s.description),
-      eliteDesc: s.eliteDesc ? plain(s.eliteDesc) : null,
+      name: tr(s.name),
+      description: plain(tr(s.description)),
+      descHtml: html(tr(s.description)),
+      eliteDesc: s.eliteDesc ? plain(tr(s.eliteDesc)) : null,
       isBoss: Boolean(s.isBoss),
       isElite: Boolean(s.isElite),
       difficulty: s.difficulty ?? null,
-    }));
+      };
+    });
 
   // ---- 아이템 -------------------------------------------------------------
   let itemIconFound = 0;
@@ -499,14 +569,14 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
       if (icon) itemIconFound++;
       return {
         id: i.id,
-        name: i.name,
-        descHtml: i.description ? html(i.description) : null,
-        usageHtml: i.usage ? html(i.usage) : null,
+        name: tr(i.name),
+        descHtml: i.description ? html(tr(i.description)) : null,
+        usageHtml: i.usage ? html(tr(i.usage)) : null,
         icon,
         rarity: i.rarity ?? 'NONE',
         type: i.type,
         subType: i.subType && i.subType !== 'NONE' ? i.subType : null,
-        unlockCondDesc: i.unlockCondDesc ?? null,
+        unlockCondDesc: i.unlockCondDesc ? tr(i.unlockCondDesc) : null,
         canSacrifice: Boolean(i.canSacrifice),
       };
     });
@@ -531,7 +601,7 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
         kind: 'monthrecord',
         title: squad ? `${squad.name} ${i + 1}` : `${chatId} ${i + 1}`,
         subtitle: `${squad ? `${squad.year}.${squad.month} 월간 분대 · ` : ''}${it.floor ? `${it.floor}층` : ''}${zone ? ` ${zone.name}` : ''}`,
-        desc: it.chatDesc ?? '',
+        desc: tr(it.chatDesc ?? ''),
         squadId: squad?.id ?? null,
         sort: 40 + i,
       });
@@ -564,7 +634,7 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
     if (!metaHit) {
       if (/_entry$/.test(file)) {
         kind = 'entry';
-        title = `${topic.name} — 진입`;
+        title = `${tr(topic.name)} — 진입`;
         subtitle = '탐험 시작 컷신';
         sort = 10;
       } else if (/_ending_(\d+)$/.test(file)) {
@@ -597,15 +667,40 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
       } else title = parsed.header || file;
     }
     const id = rel.toLowerCase().replace(/^obt\//, '').replace(/[^a-z0-9]+/g, '-');
-    const lines = parsed.lines.filter((l) => l.type !== 'header');
+    let lines = parsed.lines.filter((l) => l.type !== 'header');
+    let storyTranslated = false;
+    if (translation) {
+      const trLines = translation.storyLines(id);
+      const targets = lines.filter((l) => typeof l.text === 'string' && l.text.length > 0);
+      if (trLines && trLines.length === targets.length) {
+        let i = 0;
+        lines = lines.map((l) => (typeof l.text === 'string' && l.text.length > 0 ? { ...l, text: trLines[i++], original: l.text, speaker: l.speaker ? tr(l.speaker) : l.speaker } : l));
+        storyTranslated = true;
+      } else if (trLines) warn(`컷신 ${id}: 번역 줄 수 불일치 (${trLines.length} vs ${targets.length})`);
+    }
     const chars = lines.reduce((a, l) => a + (l.text?.length ?? 0), 0);
-    const entry = { id, topicId, kind, title, subtitle, desc: metaHit?.desc ?? null, unlockDesc: metaHit?.unlockDesc ?? null, endingId: metaHit?.endingId ?? null, squadId: metaHit?.squadId ?? null, rel, locale: found.locale, sort, lineCount: lines.length, chars };
+    const entry = { id, topicId, kind, title, subtitle, translated: storyTranslated, desc: metaHit?.desc ?? null, unlockDesc: metaHit?.unlockDesc ?? null, endingId: metaHit?.endingId ?? null, squadId: metaHit?.squadId ?? null, rel, locale: found.locale, sort, lineCount: lines.length, chars };
     cutscenes[id] = { ...entry, lines };
     cutsceneIndex.push(entry);
   }
   const kindCount = {};
   for (const c of Object.values(cutscenes)) kindCount[c.kind] = (kindCount[c.kind] ?? 0) + 1;
   log(`컷신 ${Object.keys(cutscenes).length}편`, JSON.stringify(kindCount));
+  let translationInfo = null;
+  if (translation) {
+    const st = translation.stats;
+    const cutDone = Object.values(cutscenes).filter((c) => c.translated).length;
+    translationInfo = { strings: st.strings, hit: st.hit, miss: st.miss, cutscenes: cutDone, cutscenesTotal: Object.keys(cutscenes).length };
+    log(`번역 적용 — 문자열 적중 ${st.hit} / 미번역 ${st.miss} (고유 ${st.missed.size}), 컷신 ${cutDone}/${Object.keys(cutscenes).length}`);
+    if (st.missed.size) log('  미번역 예시:', [...st.missed.keys()].slice(0, 5).map((x) => x.slice(0, 30)).join(' | '));
+  }
+
+  // 층별 집계: 이 층의 전투 수, 이 층 전용 이벤트(묶음) 수 (stages 가 만들어진 뒤에)
+  for (const z of [...zones, ...specialZones]) {
+    z.stageCount = stages.filter((st) => st.zoneHint === z.id).length;
+    z.floorEventCount = groups.filter((g) => g.zoneHint === z.id).length;
+    z.isLast = z.id === lastZoneId;
+  }
 
   // ---- 산출 ---------------------------------------------------------------
   const counts = {
@@ -627,11 +722,13 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
   topicsOut.push({
     id: topicId,
     index: n,
-    name: topic.name,
+    name: tr(topic.name),
     nameCn: cnName,
     locale,
     cnOnly,
-    lineText: topic.lineText ?? '',
+    translated: Boolean(translationInfo && translationInfo.hit > 0),
+    translation: translationInfo,
+    lineText: tr(topic.lineText ?? ''),
     kv,
     hasImages: imgFound > 0,
     zones,
@@ -645,7 +742,7 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
     counts,
     classification: classStats,
   });
-  meta.topics[topicId] = { name: topic.name, locale, counts, classification: classStats, unmatchedChoices: unmatched.length, danglingNext: dangling };
+  meta.topics[topicId] = { name: tr(topic.name), locale, counts, classification: classStats, translation: translationInfo, unmatchedChoices: unmatched.length, danglingNext: dangling };
 
   writeJson(`scenes/${topicId}.json`, { scenes: sceneOut, entries, groups });
   writeJson(`stages/${topicId}.json`, stages);

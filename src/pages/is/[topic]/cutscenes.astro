@@ -72,7 +72,7 @@ const squadOf = (c: any) => topic.monthSquads.find((m: any) => m.id === c.squadI
                 <a href={`/is/${topic.id}/cutscene/${c.id}`}><b>{c.title}</b></a>
                 {c.subtitle && <span class="small muted"> · {c.subtitle}</span>}
                 {c.unlockDesc && <div class="small muted">해금: {c.unlockDesc}</div>}
-                <div class="small muted sans">{c.lineCount}줄 · {c.chars.toLocaleString()}자{c.locale !== 'ko_KR' && ' · CN 원문'}</div>
+                <div class="small muted sans">{c.lineCount}줄 · {c.chars.toLocaleString()}자{c.locale !== 'ko_KR' && (c.translated ? ' · 비공식 번역' : ' · CN 원문(미번역)')}</div>
               </li>
             ))}
           </ul>
