@@ -672,7 +672,10 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
     if (translation) {
       const trLines = translation.storyLines(id);
       const targets = lines.filter((l) => typeof l.text === 'string' && l.text.length > 0);
-      if (trLines && trLines.length === targets.length) {
+      if (targets.length === 0) {
+        // 이미지 전용 컷신(소개 영상 대본 등)은 번역할 글이 없으므로 번역 완료로 취급
+        storyTranslated = true;
+      } else if (trLines && trLines.length === targets.length) {
         let i = 0;
         lines = lines.map((l) => (typeof l.text === 'string' && l.text.length > 0 ? { ...l, text: trLines[i++], original: l.text, speaker: l.speaker ? tr(l.speaker) : l.speaker } : l));
         storyTranslated = true;
