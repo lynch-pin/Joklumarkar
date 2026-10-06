@@ -1,0 +1,81 @@
+---
+/**
+ * /is/<topic>/items — 아이템 종류별 목록 입구 (rogue_5 는 3,788개라 종류별 페이지로 나눈다)
+ */
+import Layout from '../../../../layouts/Layout.astro';
+import TopicHero from '../../../../components/TopicHero.astro';
+import { loadTopics, loadItems, ITEM_TYPE_LABEL } from '../../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().map((t) => ({ params: { topic: t.id }, props: { topic: t } }));
+}
+const { topic } = Astro.props;
+const items = loadItems(topic.id);
+const byType = new Map<string, any[]>();
+for (const it of items) {
+  if (!byType.has(it.type)) byType.set(it.type, []);
+  byType.get(it.type)!.push(it);
+}
+const PRIORITY = ['RELIC', 'BAND', 'FRAGMENT', 'TOTEM', 'COPPER', 'COPPER_BUFF', 'WRATH', 'CAPSULE', 'RECRUIT_TICKET', 'UPGRADE_TICKET', 'ACTIVE_TOOL', 'EXPLORE_TOOL', 'DICE_TYPE', 'DISASTER_TYPE', 'FEATURE'];
+const types = [...byType.entries()]
+  .map(([key, list]) => ({ key, label: ITEM_TYPE_LABEL[key] ?? key, list }))
+  .sort((a, b) => {
+    const pa = PRIORITY.indexOf(a.key);
+    const pb = PRIORITY.indexOf(b.key);
+    return (pa < 0 ? 99 : pa) - (pb < 0 ? 99 : pb) || b.list.length - a.list.length;
+  });
+---
+
+<Layout title={`소장품 · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} 소장품·아이템 ${items.length}개`}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span>소장품</span></p>
+    <h1>소장품 · 아이템 <span class="muted small sans">{items.length.toLocaleString()}</span></h1>
+    {!topic.hasImages && <p class="badge badge--warn">이 테마의 아이콘은 에셋 미러에 없어 표시되지 않습니다</p>}
+    <ul class="list-plain types">
+      {types.map((t) => {
+        const withIcon = t.list.filter((i) => i.icon).slice(0, 6);
+        return (
+          <li class="type card">
+            <a class="type__head" href={`/is/${topic.id}/items/${t.key}`}>
+              <b>{t.label}</b> <span class="muted sans small">{t.list.length.toLocaleString()}</span>
+            </a>
+            <div class="type__icons">
+              {withIcon.map((i) => (
+                <img src={i.icon} alt={i.name} title={i.name} width="36" height="36" loading="lazy" decoding="async" />
+              ))}
+            </div>
+            <p class="small muted type__sample">{t.list.slice(0, 5).map((i) => i.name).join(' · ')}{t.list.length > 5 ? ' …' : ''}</p>
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+</Layout>
+
+<style>
+  .types {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    margin-top: 1rem;
+  }
+  .type__head {
+    color: var(--color-fg);
+    font-size: 1.05rem;
+  }
+  .type__icons {
+    display: flex;
+    gap: 0.25rem;
+    margin: 0.4rem 0;
+    min-height: 36px;
+  }
+  .type__icons img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+  }
+  .type__sample {
+    margin: 0;
+  }
+</style>

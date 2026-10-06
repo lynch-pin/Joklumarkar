@@ -1,0 +1,161 @@
+---
+/**
+ * /is/<topic>/endings — 엔딩 + 결말 기록(endbook) 링크 + 엔딩 컷신 링크 + 실패 엔딩
+ */
+import Layout from '../../../layouts/Layout.astro';
+import TopicHero from '../../../components/TopicHero.astro';
+import { loadTopics, loadCutsceneIndex } from '../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().map((t) => ({ params: { topic: t.id }, props: { topic: t } }));
+}
+const { topic } = Astro.props;
+const cuts = loadCutsceneIndex().filter((c: any) => c.topicId === topic.id);
+const byRel = new Map(cuts.map((c: any) => [c.rel.toLowerCase(), c]));
+const cutFor = (relLower: string | null) => (relLower ? byRel.get(relLower) ?? null : null);
+---
+
+<Layout title={`엔딩 · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} 엔딩 ${topic.endings.length}종`}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span>엔딩</span></p>
+    <h1>엔딩 <span class="muted small sans">{topic.endings.length}</span></h1>
+
+    <ol class="list-plain endings">
+      {topic.endings.map((e: any, i: number) => {
+        const avg = cutFor(e.cutsceneId);
+        return (
+          <li class="ending" id={e.id}>
+            {e.image ? (
+              <img class="ending__img" src={e.image} alt="" loading="lazy" decoding="async" />
+            ) : (
+              <div class="ending__img ending__img--ph sans small">삽화 미확보</div>
+            )}
+            <div class="ending__body">
+              <p class="ending__num sans">ENDING {i + 1}</p>
+              <h2 class="ending__name">{e.name}</h2>
+              <p class="ending__desc">{e.desc}</p>
+              <p class="sans small">
+                {avg ? <a class="btn" href={`/is/${topic.id}/cutscene/${avg.id}`}>엔딩 컷신 읽기 →</a> : <span class="muted">엔딩 컷신 스크립트 없음</span>}
+              </p>
+              {e.records.length > 0 && (
+                <div class="records">
+                  <p class="records__title sans small">결말 기록</p>
+                  <ul class="list-plain">
+                    {e.records.map((r: any) => {
+                      const c = cutFor(r.cutsceneId);
+                      return (
+                        <li class="record">
+                          {c ? <a href={`/is/${topic.id}/cutscene/${c.id}`}>{r.name}</a> : <span>{r.name}</span>}
+                          {r.unlockDesc && <span class="small muted"> — {r.unlockDesc}</span>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+
+    {topic.failEndings.length > 0 && (
+      <>
+        <div class="section-head"><h2>실패 엔딩</h2></div>
+        <ul class="list-plain fails">
+          {topic.failEndings.map((f: any) => (
+            <li class="card"><b>{f.name}</b> <span class="muted">{f.desc}</span></li>
+          ))}
+        </ul>
+      </>
+    )}
+  </div>
+</Layout>
+
+<style>
+  .endings {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .ending {
+    display: grid;
+    grid-template-columns: minmax(0, 22rem) 1fr;
+    gap: 1.25rem;
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    scroll-margin-top: 4rem;
+  }
+  .ending__img {
+    width: 100%;
+    height: 100%;
+    min-height: 12rem;
+    object-fit: cover;
+  }
+  .ending__img--ph {
+    display: grid;
+    place-items: center;
+    background: var(--color-hero);
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .ending__body {
+    padding: 1rem 1.25rem 1rem 0;
+  }
+  .ending__num {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    color: var(--color-accent-2);
+  }
+  .ending__name {
+    margin: 0 0 0.4rem;
+    color: var(--color-accent);
+    font-size: 1.4rem;
+  }
+  .ending__desc {
+    margin: 0 0 0.6rem;
+  }
+  .btn {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--color-accent);
+    border-radius: 999px;
+    color: var(--color-accent);
+  }
+  .btn:hover {
+    background: var(--color-accent-soft);
+    text-decoration: none;
+  }
+  .records {
+    border-top: 1px dashed var(--color-line);
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .records__title {
+    margin: 0 0 0.2rem;
+    color: var(--color-muted);
+  }
+  .record {
+    padding: 0.15rem 0;
+  }
+  .fails {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+  @media (max-width: 720px) {
+    .ending {
+      grid-template-columns: 1fr;
+    }
+    .ending__img {
+      min-height: 0;
+      aspect-ratio: 16 / 9;
+    }
+    .ending__body {
+      padding: 0 1rem 1rem;
+    }
+  }
+</style>

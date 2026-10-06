@@ -1,0 +1,92 @@
+---
+/**
+ * src/components/TopicHero.astro — 테마 상단 배너 (키 비주얼 핫링크 또는 테마 그라데이션 + 진입 문구)
+ */
+import { themeOf } from '../lib/themes.mjs';
+import { LOCALE_LABELS } from '../lib/i18n.mjs';
+
+interface Props {
+  topic: any;
+  compact?: boolean;
+}
+const { topic, compact = false } = Astro.props;
+const theme = themeOf(topic.id);
+---
+
+<section class:list={['hero', { 'hero--compact': compact }]} style={topic.kv ? `--hero-img: url("${topic.kv}")` : undefined}>
+  <div class="hero__bg" aria-hidden="true" />
+  <div class="hero__inner container">
+    <p class="hero__kicker sans">
+      <span class="hero__orn">{theme.ornament}</span> 통합전략 #{topic.index} · {theme.motif}
+      {topic.cnOnly && <span class="badge badge--warn">{LOCALE_LABELS[topic.locale]} 전용 · 한국어 없음</span>}
+      {!topic.hasImages && !topic.cnOnly && <span class="badge badge--warn" title="에셋 미러에 이 테마 이미지가 아직 없습니다">이미지 미확보</span>}
+    </p>
+    <h1 class="hero__title">{topic.name}</h1>
+    {topic.nameCn && topic.nameCn !== topic.name && <p class="hero__cn sans">{topic.nameCn}</p>}
+    {!compact && topic.lineText && <p class="hero__line" set:html={topic.lineText.replace(/\n/g, '<br>')} />}
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    background: var(--color-hero);
+    margin: -1.5rem 0 1.5rem;
+    min-height: 15rem;
+    display: flex;
+    align-items: flex-end;
+  }
+  .hero--compact {
+    min-height: 9rem;
+  }
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    background: var(--hero-img) center 30% / cover no-repeat;
+    opacity: 0.55;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.35));
+  }
+  .hero__inner {
+    position: relative;
+    padding-top: 2.5rem;
+    padding-bottom: 1.5rem;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+  }
+  .hero__kicker {
+    margin: 0 0 0.3rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .hero__orn {
+    color: var(--color-accent-2);
+  }
+  .hero__title {
+    margin: 0;
+    font-size: 2rem;
+    color: #fff;
+  }
+  .hero__cn {
+    margin: 0.1rem 0 0;
+    opacity: 0.75;
+    font-size: 0.9rem;
+  }
+  .hero__line {
+    margin: 0.75rem 0 0;
+    max-width: 36rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    opacity: 0.92;
+  }
+  @media (max-width: 600px) {
+    .hero__title {
+      font-size: 1.5rem;
+    }
+  }
+</style>

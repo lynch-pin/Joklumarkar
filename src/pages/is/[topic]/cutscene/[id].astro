@@ -1,0 +1,83 @@
+---
+/**
+ * /is/<topic>/cutscene/<id> — AVG 리더 (진입/엔딩/월간 기록/결말 기록)
+ */
+import Layout from '../../../../layouts/Layout.astro';
+import StoryReader from '../../../../components/StoryReader.astro';
+import { loadTopics, loadCutscenes, CUTSCENE_KIND_LABEL } from '../../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().flatMap((t) => Object.keys(loadCutscenes(t.id)).map((id) => ({ params: { topic: t.id, id }, props: { topic: t, id } })));
+}
+const { topic, id } = Astro.props;
+const all = loadCutscenes(topic.id);
+const cut = all[id];
+const list = Object.values(all)
+  .filter((c: any) => c.kind === cut.kind)
+  .sort((a: any, b: any) => a.sort - b.sort || a.rel.localeCompare(b.rel, undefined, { numeric: true }));
+const idx = list.findIndex((c: any) => c.id === id);
+const prev = list[idx - 1] ?? null;
+const next = list[idx + 1] ?? null;
+const ending = cut.endingId ? topic.endings.find((e: any) => e.id === cut.endingId) : null;
+---
+
+<Layout title={`${cut.title} · ${topic.name}`} topic={topic.id} topicName={topic.name} image={ending?.image ?? topic.kv} description={cut.subtitle || `${topic.name} ${CUTSCENE_KIND_LABEL[cut.kind]}`}>
+  <div class="container container--narrow">
+    <p class="crumbs">
+      <span><a href={`/is/${topic.id}`}>{topic.name}</a></span>
+      <span><a href={`/is/${topic.id}/cutscenes#${cut.kind}`}>{CUTSCENE_KIND_LABEL[cut.kind] ?? cut.kind}</a></span>
+      <span>{cut.title}</span>
+    </p>
+    <header class="chead">
+      <p class="chead__kind sans small">{CUTSCENE_KIND_LABEL[cut.kind] ?? cut.kind}{cut.subtitle && ` · ${cut.subtitle}`}</p>
+      <h1>{cut.title}</h1>
+      {cut.desc && <p class="chead__desc muted">{cut.desc}</p>}
+      {cut.unlockDesc && <p class="small muted sans">해금 조건: {cut.unlockDesc}</p>}
+      {ending && (
+        <p class="small sans">엔딩 <a href={`/is/${topic.id}/endings#${ending.id}`}>{ending.name}</a></p>
+      )}
+      {cut.locale !== 'ko_KR' && <p class="badge badge--warn">CN 서버 원문 (한국어 미실장)</p>}
+    </header>
+
+    {ending?.image && cut.kind === 'ending' && <img class="cg" src={ending.image} alt="" loading="lazy" decoding="async" />}
+
+    <StoryReader lines={cut.lines} />
+
+    <nav class="pager sans small">
+      {prev ? <a href={`/is/${topic.id}/cutscene/${prev.id}`}>← {prev.title}</a> : <span />}
+      {next ? <a href={`/is/${topic.id}/cutscene/${next.id}`}>{next.title} →</a> : <span />}
+    </nav>
+  </div>
+</Layout>
+
+<style>
+  .chead {
+    margin-bottom: 1.5rem;
+  }
+  .chead__kind {
+    margin: 0;
+    color: var(--color-accent-2);
+    letter-spacing: 0.05em;
+  }
+  .chead h1 {
+    margin: 0.1rem 0 0.4rem;
+    color: var(--color-accent);
+  }
+  .chead__desc {
+    margin: 0;
+  }
+  .cg {
+    display: block;
+    width: 100%;
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+  }
+  .pager {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 2rem;
+    border-top: 1px solid var(--color-line);
+    padding-top: 1rem;
+  }
+</style>

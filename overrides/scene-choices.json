@@ -1,0 +1,9 @@
+{
+  "_comment": "장면 → 선택지 목록 수동 보정. id 규칙으로 부모 장면을 못 찾은 선택지를 여기에 적는다. { \"rogue_4\": { \"scene_ro4_xxx_enter\": [\"choice_ro4_xxx_1\"] } }",
+  "rogue_1": {},
+  "rogue_2": {},
+  "rogue_3": {},
+  "rogue_4": {},
+  "rogue_5": {},
+  "rogue_6": {}
+}

@@ -1,0 +1,178 @@
+---
+/**
+ * /is/<topic>/items/<type> — 종류별 아이템 목록 (아이콘 + 희귀도 + 효과 + 설명), 희귀도 필터·이름 필터
+ */
+import Layout from '../../../../layouts/Layout.astro';
+import TopicHero from '../../../../components/TopicHero.astro';
+import { loadTopics, loadItems, ITEM_TYPE_LABEL, RARITY_LABEL, RARITY_LEVEL } from '../../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().flatMap((t) => {
+    const types = [...new Set(loadItems(t.id).map((i: any) => i.type))];
+    return types.map((type) => ({ params: { topic: t.id, type }, props: { topic: t, type } }));
+  });
+}
+const { topic, type } = Astro.props;
+const all = loadItems(topic.id);
+const items = all.filter((i: any) => i.type === type);
+const label = ITEM_TYPE_LABEL[type] ?? type;
+const rarities = [...new Set(items.map((i: any) => i.rarity))].sort((a, b) => (RARITY_LEVEL[b] ?? 0) - (RARITY_LEVEL[a] ?? 0));
+const otherTypes = [...new Set(all.map((i: any) => i.type))];
+---
+
+<Layout title={`${label} · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} ${label} ${items.length}개`}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span><a href={`/is/${topic.id}/items`}>소장품</a></span><span>{label}</span></p>
+    <h1>{label} <span class="muted small sans">{items.length.toLocaleString()}</span></h1>
+
+    <div class="filters sans">
+      <input id="q" type="search" placeholder="이름·효과로 거르기" aria-label="이름·효과로 거르기" />
+      <div class="shortcuts" id="rarity">
+        <button type="button" data-r="" aria-pressed="true">전체</button>
+        {rarities.map((r) => (
+          <button type="button" data-r={r} aria-pressed="false">{RARITY_LABEL[r] ?? r}</button>
+        ))}
+      </div>
+      <select id="type-jump" aria-label="다른 종류로">
+        {otherTypes.map((t) => (
+          <option value={`/is/${topic.id}/items/${t}`} selected={t === type}>{ITEM_TYPE_LABEL[t] ?? t}</option>
+        ))}
+      </select>
+    </div>
+
+    <ul class="list-plain items" id="list">
+      {items.map((i: any) => (
+        <li class={`item card r-${RARITY_LEVEL[i.rarity] ?? 0}`} data-r={i.rarity} data-q={`${i.name} ${(i.usageHtml ?? '').replace(/<[^>]+>/g, '')}`.toLowerCase()} id={i.id}>
+          <div class="item__icon">
+            {i.icon ? <img src={i.icon} alt="" width="56" height="56" loading="lazy" decoding="async" /> : <span class="item__ph">{i.name.slice(0, 1)}</span>}
+          </div>
+          <div class="item__body">
+            <div class="item__head">
+              <b>{i.name}</b>
+              <span class="badge badge--muted">{RARITY_LABEL[i.rarity] ?? i.rarity}</span>
+              {i.subType && <span class="badge badge--info">{i.subType}</span>}
+            </div>
+            {i.usageHtml && <p class="item__usage" set:html={i.usageHtml} />}
+            {i.descHtml && <p class="item__desc small muted" set:html={i.descHtml} />}
+            {i.unlockCondDesc && <p class="small muted sans">해금: {i.unlockCondDesc}</p>}
+          </div>
+        </li>
+      ))}
+    </ul>
+    <p class="muted sans small" id="empty" hidden>조건에 맞는 항목이 없습니다.</p>
+  </div>
+</Layout>
+
+<script>
+  const items = Array.from(document.querySelectorAll<HTMLElement>('#list .item'));
+  const q = document.getElementById('q') as HTMLInputElement;
+  const rar = document.getElementById('rarity')!;
+  const empty = document.getElementById('empty')!;
+  const jump = document.getElementById('type-jump') as HTMLSelectElement;
+  let r = '';
+  const apply = () => {
+    const text = q.value.trim().toLowerCase();
+    let shown = 0;
+    for (const el of items) {
+      const ok = (!r || el.dataset.r === r) && (!text || (el.dataset.q ?? '').includes(text));
+      el.hidden = !ok;
+      if (ok) shown++;
+    }
+    empty.hidden = shown > 0;
+  };
+  rar.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button[data-r]');
+    if (!b) return;
+    r = b.dataset.r ?? '';
+    rar.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    apply();
+  });
+  q.addEventListener('input', apply);
+  jump.addEventListener('change', () => (location.href = jump.value));
+</script>
+
+<style>
+  .filters {
+    display: flex;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 0.5rem 0 1rem;
+  }
+  .filters .shortcuts {
+    margin: 0;
+  }
+  #q,
+  #type-jump {
+    font: inherit;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    color: var(--color-fg);
+  }
+  #q {
+    flex: 1 1 14rem;
+    max-width: 24rem;
+  }
+  .items {
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  }
+  .item {
+    display: flex;
+    gap: 0.8rem;
+    padding: 0.7rem 0.9rem;
+    border-left-width: 4px;
+  }
+  .item[hidden] {
+    display: none;
+  }
+  .r-1 {
+    border-left-color: #8a8a8a;
+  }
+  .r-2 {
+    border-left-color: #4a90d9;
+  }
+  .r-3 {
+    border-left-color: #d9a441;
+  }
+  .item__icon {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    background: var(--color-card-2);
+    border-radius: 6px;
+  }
+  .item__icon img {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+  }
+  .item__ph {
+    color: var(--color-muted);
+    font-weight: 700;
+  }
+  .item__body {
+    min-width: 0;
+  }
+  .item__head {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .item__usage {
+    margin: 0.2rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+  .item__desc {
+    margin: 0.2rem 0 0;
+    font-style: italic;
+  }
+</style>

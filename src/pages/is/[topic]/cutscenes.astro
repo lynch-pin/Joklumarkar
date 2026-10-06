@@ -1,0 +1,110 @@
+---
+/**
+ * /is/<topic>/cutscenes — AVG 컷신·기록 목록 (진입/엔딩/결말 기록/월간 분대 기록/도전 기록/…)
+ */
+import Layout from '../../../layouts/Layout.astro';
+import TopicHero from '../../../components/TopicHero.astro';
+import { loadTopics, loadCutsceneIndex, CUTSCENE_KIND_LABEL } from '../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().map((t) => ({ params: { topic: t.id }, props: { topic: t } }));
+}
+const { topic } = Astro.props;
+const cuts = loadCutsceneIndex()
+  .filter((c: any) => c.topicId === topic.id)
+  .sort((a: any, b: any) => a.sort - b.sort || a.rel.localeCompare(b.rel, undefined, { numeric: true }));
+const order = ['entry', 'ending', 'endbook', 'monthrecord', 'challenge', 'tutorial', 'ref', 'other'];
+const kinds = order.map((k) => ({ key: k, label: CUTSCENE_KIND_LABEL[k], list: cuts.filter((c: any) => c.kind === k) })).filter((k) => k.list.length);
+
+// 월간 분대 기록은 분대별로 묶는다
+const squadOf = (c: any) => topic.monthSquads.find((m: any) => m.id === c.squadId) ?? null;
+---
+
+<Layout title={`컷신·기록 · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} AVG 컷신과 기록 ${cuts.length}편`}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span>컷신·기록</span></p>
+    <h1>컷신 · 기록 <span class="muted small sans">{cuts.length}편</span></h1>
+    <div class="shortcuts">
+      {kinds.map((k) => (
+        <a href={`#${k.key}`}>{k.label} <span class="muted">{k.list.length}</span></a>
+      ))}
+    </div>
+
+    {kinds.map((k) => (
+      <section id={k.key} class="ksec">
+        <div class="section-head"><h2>{k.label}</h2></div>
+        {k.key === 'monthrecord' ? (
+          <div class="squads">
+            {(() => {
+              const groups = new Map<string, any[]>();
+              for (const c of k.list) {
+                const key = c.squadId ?? '_';
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(c);
+              }
+              return [...groups.entries()].map(([sid, list]) => {
+                const squad = squadOf(list[0]);
+                return (
+                  <div class="squad card" style={squad?.color ? `--sq:${squad.color}` : undefined}>
+                    <p class="squad__name">
+                      <b>{squad?.name ?? sid}</b>
+                      {squad?.year && <span class="small muted sans"> {squad.year}.{squad.month}</span>}
+                    </p>
+                    {squad?.desc && <p class="small muted squad__desc">{squad.desc}</p>}
+                    <ol class="list-plain">
+                      {list.map((c: any) => (
+                        <li class="cut">
+                          <a href={`/is/${topic.id}/cutscene/${c.id}`}>{c.subtitle || c.title}</a>
+                          {c.desc && <span class="small muted"> — {c.desc}</span>}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        ) : (
+          <ul class="list-plain cuts">
+            {k.list.map((c: any) => (
+              <li class="cut card">
+                <a href={`/is/${topic.id}/cutscene/${c.id}`}><b>{c.title}</b></a>
+                {c.subtitle && <span class="small muted"> · {c.subtitle}</span>}
+                {c.unlockDesc && <div class="small muted">해금: {c.unlockDesc}</div>}
+                <div class="small muted sans">{c.lineCount}줄 · {c.chars.toLocaleString()}자{c.locale !== 'ko_KR' && ' · CN 원문'}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    ))}
+  </div>
+</Layout>
+
+<style>
+  .ksec {
+    scroll-margin-top: 4rem;
+  }
+  .cuts,
+  .squads {
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  }
+  .cut.card {
+    padding: 0.7rem 0.9rem;
+  }
+  .squad {
+    border-left: 4px solid var(--sq, var(--color-line));
+  }
+  .squad__name {
+    margin: 0 0 0.2rem;
+  }
+  .squad__desc {
+    margin: 0 0 0.4rem;
+  }
+  .squad .cut {
+    padding: 0.15rem 0;
+  }
+</style>

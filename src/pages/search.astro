@@ -1,0 +1,150 @@
+---
+/**
+ * /search — 장면 제목/본문 검색 (클라이언트 사이드, /search.json 을 처음 입력 때 받아온다)
+ */
+import Layout from '../layouts/Layout.astro';
+import { loadTopics } from '../lib/data.mjs';
+import { themeOf } from '../lib/themes.mjs';
+
+const topics = loadTopics();
+const topicMeta = Object.fromEntries(topics.map((t) => [t.id, { name: t.name, short: themeOf(t.id).short, cnOnly: t.cnOnly, types: Object.fromEntries(Object.values(t.nodeTypes).map((n: any) => [n.key, n.name])) }]));
+---
+
+<Layout title="검색" description="통합전략 이벤트 장면 제목·본문 검색">
+  <div class="container container--narrow">
+    <h1>이벤트 검색</h1>
+    <p class="muted small sans">진입 장면의 제목과 본문 앞부분(160자)에서 찾습니다. 두 글자 이상 입력.</p>
+    <input id="q" type="search" placeholder="예: 리치, 결투, 상인" autofocus aria-label="검색어" />
+    <div class="shortcuts" id="topics">
+      <button type="button" data-t="" aria-pressed="true">전체</button>
+      {topics.filter((t) => !t.cnOnly).map((t) => (
+        <button type="button" data-t={t.id} aria-pressed="false">IS{t.index} {themeOf(t.id).short}</button>
+      ))}
+    </div>
+    <p class="muted small sans" id="status"></p>
+    <ol class="list-plain results" id="results"></ol>
+  </div>
+</Layout>
+
+<script define:vars={{ topicMeta }}>
+  const q = document.getElementById('q');
+  const results = document.getElementById('results');
+  const status = document.getElementById('status');
+  const tf = document.getElementById('topics');
+  let index = null;
+  let topic = '';
+  let loading = null;
+  const load = () => {
+    if (index) return Promise.resolve(index);
+    if (!loading) {
+      status.textContent = '색인 불러오는 중…';
+      loading = fetch('/search.json')
+        .then((r) => r.json())
+        .then((d) => {
+          index = d;
+          return d;
+        });
+    }
+    return loading;
+  };
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const mark = (s, term) => {
+    const i = s.toLowerCase().indexOf(term);
+    if (i < 0) return esc(s);
+    return `${esc(s.slice(0, i))}<mark>${esc(s.slice(i, i + term.length))}</mark>${esc(s.slice(i + term.length))}`;
+  };
+  const run = async () => {
+    const term = q.value.trim().toLowerCase();
+    if (term.length < 2) {
+      results.innerHTML = '';
+      status.textContent = '';
+      return;
+    }
+    const idx = await load();
+    const hits = idx.filter((e) => (!topic || e.t === topic) && (e.title.toLowerCase().includes(term) || e.text.toLowerCase().includes(term)));
+    // CN 전용 테마는 전체 검색에서 제외
+    const shown = hits.filter((e) => topic || !topicMeta[e.t]?.cnOnly).slice(0, 200);
+    status.textContent = `${hits.length}건${hits.length > 200 ? ' (200건까지 표시)' : ''}`;
+    results.innerHTML = shown
+      .map((e) => {
+        const tm = topicMeta[e.t] ?? {};
+        const snippet = (() => {
+          const i = e.text.toLowerCase().indexOf(term);
+          const start = Math.max(0, i - 40);
+          return (start > 0 ? '…' : '') + e.text.slice(start, start + 120) + (e.text.length > start + 120 ? '…' : '');
+        })();
+        return `<li class="hit"><a href="/is/${e.t}/scene/${e.id}"><span class="hit__topic">${esc(tm.short ?? e.t)}</span> <b>${mark(e.title || e.id, term)}</b> <span class="hit__type">${esc(tm.types?.[e.type] ?? e.type)}</span><span class="hit__text">${mark(snippet, term)}</span></a></li>`;
+      })
+      .join('');
+  };
+  q.addEventListener('input', run);
+  q.addEventListener('focus', () => load().then(() => (status.textContent = status.textContent === '색인 불러오는 중…' ? '' : status.textContent)));
+  tf.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-t]');
+    if (!b) return;
+    topic = b.dataset.t || '';
+    tf.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    run();
+  });
+  const initial = new URLSearchParams(location.search).get('q');
+  if (initial) {
+    q.value = initial;
+    run();
+  }
+</script>
+
+<style>
+  #q {
+    font: inherit;
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    color: var(--color-fg);
+    font-size: 1.05rem;
+  }
+  .results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .results :global(.hit a) {
+    display: block;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    color: var(--color-fg);
+  }
+  .results :global(.hit a:hover) {
+    border-color: var(--color-accent);
+    text-decoration: none;
+  }
+  .results :global(.hit__topic) {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    color: var(--color-accent);
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 0 0.3rem;
+    margin-right: 0.2rem;
+  }
+  .results :global(.hit__type) {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-left: 0.3rem;
+  }
+  .results :global(.hit__text) {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+    margin-top: 0.15rem;
+  }
+  .results :global(mark) {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    padding: 0 0.1em;
+  }
+</style>

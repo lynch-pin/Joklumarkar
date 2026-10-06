@@ -1,0 +1,380 @@
+---
+/**
+ * src/components/SceneNode.astro — 이벤트 장면 하나(삽화 + 본문 + 선택지)와, 선택지 아래 접혀 있는 결과 장면들을 재귀 렌더링.
+ *
+ * 한 페이지 안에서 같은 장면은 한 번만 그린다(`rendered` 공유 맵). 이미 그려진 장면으로 이어지는 선택지는
+ * 그 패널로 점프(data-jump)한다 — 자기 자신으로 돌아오는 선택지나 두 선택지가 같은 결과를 가리키는 경우를 처리.
+ *
+ * props:
+ *   scene      scenes/<topic>.json 의 장면 객체
+ *   scenes     장면 id → 장면
+ *   topic      topics.json 의 테마 객체 (노드 종류 이름·아이콘)
+ *   path       트리 안 위치 문자열 (패널 id)
+ *   rendered   장면 id → 패널 id (페이지 단위 공유, 렌더 순서대로 채워진다)
+ *   depth
+ */
+import { CHOICE_TYPE_LABEL } from '../lib/data.mjs';
+
+interface Props {
+  scene: any;
+  scenes: Record<string, any>;
+  topic: any;
+  path?: string;
+  rendered?: Map<string, string>;
+  depth?: number;
+}
+const { scene, scenes, topic, path = 'r', rendered = new Map<string, string>(), depth = 0 } = Astro.props;
+const MAX_DEPTH = 14;
+const MAX_SCENES = 80; // 한 페이지에 인라인으로 그릴 장면 수 상한 (초과분은 자체 페이지 링크)
+
+const nodeType = topic.nodeTypes?.[scene.nodeType] ?? null;
+if (!rendered.has(scene.id)) rendered.set(scene.id, `sn-${path}`);
+
+// 이 장면 아래에 새로 그릴 결과 장면들. 이미 그려진(또는 그리기로 예약된) 장면은 점프 대상으로만 둔다.
+const panels: { next: string; id: string }[] = [];
+const panelIdFor = new Map<string, string>(); // next → 패널 id (새로 그리는 것)
+const jumpFor = new Map<string, string>(); // next → 기존 패널/장면 id (점프)
+scene.choices.forEach((c: any, i: number) => {
+  if (!c.next || !scenes[c.next] || panelIdFor.has(c.next) || jumpFor.has(c.next)) return;
+  if (rendered.has(c.next)) {
+    jumpFor.set(c.next, rendered.get(c.next)!);
+    return;
+  }
+  if (depth >= MAX_DEPTH || rendered.size >= MAX_SCENES) return; // 너무 깊거나 많으면 그 장면의 자체 페이지로 링크
+  const id = `${path}-${i}`;
+  panelIdFor.set(c.next, id);
+  rendered.set(c.next, `sn-${id}`);
+  panels.push({ next: c.next, id });
+});
+const hasChoices = scene.choices.length > 0;
+const endNoteId = `${path}-end`;
+---
+
+<article class="sn" id={`sn-${path}`} data-scene={scene.id} data-depth={depth}>
+  {depth > 0 && <div class="sn__arrow" aria-hidden="true">▼</div>}
+  <figure class="sn__figure">
+    {scene.image ? (
+      <img class="sn__img" src={scene.image} alt="" loading={depth === 0 ? 'eager' : 'lazy'} decoding="async" />
+    ) : (
+      <div class="sn__img sn__img--placeholder">
+        {nodeType?.active && <img src={nodeType.active} alt="" height="40" loading="lazy" decoding="async" />}
+        <span>삽화 미확보 — 에셋 미러에 이 테마 이미지가 아직 없습니다</span>
+      </div>
+    )}
+    <figcaption class="sn__caption">
+      {nodeType && (
+        <span class="sn__type">
+          {nodeType.name}
+          {nodeType.tag && <img class="tagimg tagimg--onimage" src={nodeType.tag} alt="" loading="lazy" decoding="async" />}
+          {scene.nodeTypeSource !== 'data' && scene.nodeTypeSource !== 'override' && <span class="sn__guess" title="장면 id 규칙으로 추정한 노드 종류입니다">추정</span>}
+        </span>
+      )}
+      <a class="sn__id" href={`/is/${topic.id}/scene/${scene.id}`} title="이 장면만 따로 보기">{scene.id}</a>
+    </figcaption>
+  </figure>
+
+  <div class="sn__panel">
+    <h2 class="sn__title">{scene.title || <span class="muted">(제목 없음)</span>}</h2>
+    <div class="sn__body" set:html={scene.html} />
+
+    {hasChoices ? (
+      <ol class="choices list-plain">
+        {scene.choices.map((c: any) => {
+          const panel = c.next ? panelIdFor.get(c.next) : undefined;
+          const jump = c.next ? jumpFor.get(c.next) : undefined;
+          const link = c.next && !panel && !jump ? `/is/${topic.id}/scene/${c.next}` : undefined;
+          const self = c.next === scene.id;
+          return (
+            <li>
+              <button
+                type="button"
+                class:list={['choice', { 'choice--leave': c.isLeave, 'choice--end': !c.next }]}
+                data-panel={panel}
+                data-jump={jump}
+                data-link={link}
+                data-end={!c.next ? '' : undefined}
+                aria-pressed="false"
+              >
+                <span class="choice__icon">
+                  {c.icon ? <img src={c.icon} alt="" width="28" height="28" loading="lazy" decoding="async" /> : c.item?.icon ? <img src={c.item.icon} alt="" width="28" height="28" loading="lazy" decoding="async" /> : <span class="choice__dot" />}
+                </span>
+                <span class="choice__text">
+                  <span class="choice__title">{c.title || <span class="muted">…</span>}</span>
+                  {c.descHtml && <span class="choice__desc" set:html={c.descHtml} />}
+                  {c.lockedHtml && <span class="choice__locked" set:html={c.lockedHtml} />}
+                </span>
+                <span class="choice__meta">
+                  <span class="badge badge--muted">{CHOICE_TYPE_LABEL[c.type] ?? c.type}</span>
+                  {c.isProb && <span class="badge badge--warn" title="확률 분기. 확률값은 데이터에 없습니다">확률</span>}
+                  {!c.next ? (
+                    <span class="choice__go choice__go--end" aria-hidden="true" title="이 선택으로 이벤트 종료">■</span>
+                  ) : self ? (
+                    <span class="choice__go" aria-hidden="true" title="이 장면으로 돌아옴">↻</span>
+                  ) : jump ? (
+                    <span class="choice__go" aria-hidden="true" title="앞에 나온 장면으로 이어짐">↩</span>
+                  ) : (
+                    <span class="choice__go" aria-hidden="true">▸</span>
+                  )}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    ) : (
+      <p class="sn__end muted small sans">이 장면에서 이벤트가 끝난다.</p>
+    )}
+  </div>
+
+  <div class="results">
+    {hasChoices && (
+      <p class="result endnote muted small sans" id={endNoteId} hidden>
+        ■ 이 선택지로 이벤트가 끝난다 (이어지는 장면 없음).
+      </p>
+    )}
+    {panels.map(({ next, id }) => (
+      <div class="result" id={id} hidden>
+        <Astro.self scene={scenes[next]} scenes={scenes} topic={topic} path={id} rendered={rendered} depth={depth + 1} />
+      </div>
+    ))}
+  </div>
+</article>
+
+<style>
+  .sn {
+    position: relative;
+  }
+  .sn__arrow {
+    text-align: center;
+    color: var(--color-accent);
+    opacity: 0.6;
+    font-size: 0.8rem;
+    margin: 0.25rem 0;
+  }
+  .sn__figure {
+    margin: 0;
+    position: relative;
+  }
+  .sn__img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--color-card-2);
+  }
+  .sn__img--placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background: var(--color-hero);
+    color: rgba(255, 255, 255, 0.75);
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    aspect-ratio: 21 / 9;
+  }
+  .sn__img--placeholder img {
+    opacity: 0.8;
+  }
+  .sn__caption {
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.6rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+  }
+  .sn__type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    backdrop-filter: blur(4px);
+  }
+  .sn__guess {
+    opacity: 0.7;
+    font-size: 0.9em;
+    border-left: 1px solid rgba(255, 255, 255, 0.4);
+    padding-left: 0.4rem;
+  }
+  .sn__id {
+    color: rgba(255, 255, 255, 0.65);
+    font-family: ui-monospace, monospace;
+    font-size: 0.7rem;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+  }
+  .sn__id:hover {
+    color: #fff;
+    text-decoration: none;
+  }
+  .sn__panel {
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-top: 0;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    padding: 1.1rem 1.25rem 1.25rem;
+  }
+  .sn__title {
+    font-size: 1.35rem;
+    margin: 0 0 0.6rem;
+    color: var(--color-accent);
+    letter-spacing: 0.01em;
+  }
+  .sn__body {
+    font-size: 1rem;
+    line-height: 1.85;
+    margin-bottom: 1rem;
+    overflow-wrap: anywhere;
+  }
+  .sn__end {
+    margin: 0.5rem 0 0;
+  }
+
+  .choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .choice {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 2.25rem 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--color-line);
+    border-left: 3px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: var(--color-card-2);
+    color: var(--color-fg);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .choice:hover {
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+  }
+  .choice[aria-pressed='true'] {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent) inset;
+  }
+  .choice--leave {
+    border-left-color: var(--color-muted);
+    color: var(--color-muted);
+  }
+  .choice--leave .choice__title {
+    color: var(--color-muted);
+  }
+  .choice__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .choice__icon img {
+    width: 1.75rem;
+    height: 1.75rem;
+    object-fit: contain;
+  }
+  .choice__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-muted);
+  }
+  .choice__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .choice__title {
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .choice__desc,
+  .choice__locked {
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+  .choice__locked {
+    font-style: italic;
+  }
+  .choice__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+  }
+  .choice__go {
+    color: var(--color-accent);
+    font-size: 0.9rem;
+  }
+  .choice__go--end {
+    color: var(--color-muted);
+    font-size: 0.6rem;
+  }
+
+  .results {
+    margin-left: 1.25rem;
+    border-left: 2px dashed var(--color-line);
+    padding-left: 0.9rem;
+  }
+  .results:empty {
+    display: none;
+  }
+  .result {
+    margin-top: 0.75rem;
+  }
+  .result[hidden] {
+    display: none;
+  }
+  .endnote {
+    margin: 0.6rem 0 0;
+  }
+  .sn:target > .sn__figure,
+  .sn:target > .sn__panel {
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
+
+  @media (max-width: 600px) {
+    .sn__panel {
+      padding: 0.9rem 0.9rem 1rem;
+    }
+    .choice {
+      grid-template-columns: 2rem 1fr;
+    }
+    .choice__meta {
+      grid-column: 2;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      white-space: normal;
+    }
+    .results {
+      margin-left: 0.4rem;
+      padding-left: 0.5rem;
+    }
+    .sn__id {
+      display: none;
+    }
+  }
+</style>

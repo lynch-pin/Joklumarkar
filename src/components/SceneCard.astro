@@ -1,0 +1,117 @@
+---
+/**
+ * src/components/SceneCard.astro — 이벤트(진입 장면) 카드. 같은 제목의 변형이 여럿이면 묶음으로 표시.
+ * props: group ({ title, nodeType, ids }), scenes, topic
+ */
+interface Props {
+  group: { title: string; nodeType: string; ids: string[]; prefix?: string };
+  scenes: Record<string, any>;
+  topic: any;
+  showType?: boolean;
+}
+const { group, scenes, topic, showType = true } = Astro.props;
+const first = scenes[group.ids[0]];
+const nodeType = topic.nodeTypes?.[group.nodeType] ?? null;
+const snippet = (first?.html ?? '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 110);
+const variants = group.ids.length;
+---
+
+<a class="sc" href={`/is/${topic.id}/scene/${first.id}`} data-type={group.nodeType}>
+  {first.image ? (
+    <img class="sc__img" src={first.image} alt="" loading="lazy" decoding="async" />
+  ) : (
+    <div class="sc__img sc__img--ph">{nodeType?.active && <img src={nodeType.active} alt="" height="22" loading="lazy" decoding="async" />}</div>
+  )}
+  <div class="sc__body">
+    <div class="sc__head">
+      <span class="sc__title">{group.title || <span class="muted">(제목 없음)</span>}</span>
+      {variants > 1 && <span class="badge badge--info" title="같은 제목의 변형 장면">×{variants}</span>}
+    </div>
+    {showType && nodeType && (
+      <span class="sc__type sans">
+        {nodeType.name}
+        {nodeType.tag && <img class="tagimg" src={nodeType.tag} alt="" loading="lazy" decoding="async" />}
+      </span>
+    )}
+    <p class="sc__snippet">{snippet}{snippet.length >= 110 ? '…' : ''}</p>
+    <span class="sc__meta sans muted">선택지 {first.choices.length}</span>
+  </div>
+</a>
+
+<style>
+  .sc {
+    display: flex;
+    gap: 0.8rem;
+    padding: 0.6rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    color: var(--color-fg);
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .sc:hover {
+    text-decoration: none;
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  .sc__img {
+    flex-shrink: 0;
+    width: 7.5rem;
+    height: 4.6rem;
+    object-fit: cover;
+    border-radius: 4px;
+    background: var(--color-card-2);
+  }
+  .sc__img--ph {
+    display: grid;
+    place-items: center;
+    background: var(--color-hero);
+  }
+  .sc__img--ph img {
+    opacity: 0.75;
+  }
+  .sc__body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.15rem;
+  }
+  .sc__head {
+    display: flex;
+    gap: 0.4rem;
+    align-items: baseline;
+  }
+  .sc__title {
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--color-accent);
+  }
+  .sc__type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    color: var(--color-muted);
+  }
+  .sc__snippet {
+    margin: 0.1rem 0 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-fg);
+    opacity: 0.85;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .sc__meta {
+    font-size: 0.72rem;
+  }
+  @media (max-width: 480px) {
+    .sc__img {
+      width: 5.5rem;
+      height: 3.6rem;
+    }
+  }
+</style>

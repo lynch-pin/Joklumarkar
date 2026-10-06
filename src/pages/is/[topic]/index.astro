@@ -1,0 +1,262 @@
+---
+/**
+ * /is/<topic> — 구역 목록(구역마다 가상 노드 맵) + 노드 종류 그리드 + 테마 통계 + 난이도/분대
+ */
+import Layout from '../../../layouts/Layout.astro';
+import TopicHero from '../../../components/TopicHero.astro';
+import NodeMap from '../../../components/NodeMap.astro';
+import { loadTopics, loadMeta } from '../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().map((t) => ({ params: { topic: t.id }, props: { topic: t } }));
+}
+const { topic } = Astro.props;
+const meta = loadMeta();
+const typesOf = (keys: string[]) => keys.map((k) => topic.nodeTypes[k]).filter(Boolean);
+const allTypes = Object.values(topic.nodeTypes).filter((t: any) => !t.pseudo);
+const pseudo = Object.values(topic.nodeTypes).filter((t: any) => t.pseudo);
+const eventTypes = allTypes.filter((t: any) => t.entryCount > 0);
+---
+
+<Layout title={topic.name} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} — 구역 ${topic.counts.zones}, 이벤트 ${topic.counts.entryScenes}, 선택지 ${topic.counts.choices}, 전투 ${topic.counts.stages}, 엔딩 ${topic.counts.endings}`}>
+  <TopicHero topic={topic} />
+  <div class="container">
+    <ul class="list-plain stats sans">
+      <li><a href={`/is/${topic.id}/events`}><b>{topic.counts.entryScenes}</b> 이벤트</a></li>
+      <li><b>{topic.counts.choices}</b> 선택지</li>
+      <li><a href={`/is/${topic.id}/stages`}><b>{topic.counts.stages}</b> 전투</a></li>
+      <li><a href={`/is/${topic.id}/endings`}><b>{topic.counts.endings}</b> 엔딩</a></li>
+      <li><a href={`/is/${topic.id}/items`}><b>{topic.counts.items.toLocaleString()}</b> 소장품·아이템</a></li>
+      <li><a href={`/is/${topic.id}/cutscenes`}><b>{topic.counts.cutscenes}</b> 컷신·기록</a></li>
+    </ul>
+
+    <div class="section-head">
+      <h2>구역</h2>
+      <span class="small muted sans">
+        {topic.zones.some((z: any) => z.nodeTypesSource === 'data') ? '구역별 등장 노드 종류 (게임 데이터 rollNodeData)' : '이 테마는 구역별 노드 데이터가 없어 전체 종류를 공통으로 표시'}
+      </span>
+    </div>
+    <ol class="list-plain zones">
+      {topic.zones.map((z: any, i: number) => (
+        <li class="zone" id={z.id}>
+          <div class="zone__head">
+            <a class="zone__name" href={`/is/${topic.id}/zone/${z.id}`}>
+              <span class="zone__floor sans">{i + 1}F</span>
+              <span>{z.name}</span>
+              {z.isHidden && <span class="badge badge--muted">숨겨진 구역</span>}
+            </a>
+            <p class="zone__desc">{z.description}</p>
+          </div>
+          <NodeMap types={typesOf(z.nodeTypes)} hrefBase={`/is/${topic.id}/zone/${z.id}#`} ui={meta.ui} compact showCount={false} />
+        </li>
+      ))}
+    </ol>
+    {topic.specialZones.length > 0 && (
+      <>
+        <div class="section-head">
+          <h2>특수 구역</h2>
+          <span class="small muted sans">포탈·변형·숨겨진 구역. 같은 이름은 하나로 묶음</span>
+        </div>
+        <ol class="list-plain zones">
+          {topic.specialZones.map((z: any) => (
+            <li class="zone" id={z.id}>
+              <div class="zone__head">
+                <a class="zone__name" href={`/is/${topic.id}/zone/${z.id}`}>
+                  <span class="zone__floor zone__floor--sp sans">특수</span>
+                  <span>{z.name}</span>
+                  {z.count > 1 && <span class="badge badge--muted">×{z.count}</span>}
+                  {z.isHidden && <span class="badge badge--muted">숨겨진 구역</span>}
+                </a>
+                <p class="zone__desc">{z.description}</p>
+              </div>
+              <NodeMap types={typesOf(z.nodeTypes)} hrefBase={`/is/${topic.id}/zone/${z.id}#`} ui={meta.ui} compact showCount={false} />
+            </li>
+          ))}
+        </ol>
+      </>
+    )}
+
+    <div class="section-head">
+      <h2>노드 종류</h2>
+      <a class="more" href={`/is/${topic.id}/events`}>이벤트 전체 보기 →</a>
+    </div>
+    <NodeMap types={eventTypes} hrefBase={`/is/${topic.id}/node/`} ui={meta.ui} />
+    <ul class="list-plain types">
+      {[...allTypes, ...pseudo].map((t: any) => (
+        <li class="type card" id={`type-${t.key}`}>
+          <a class="type__head" href={`/is/${topic.id}/node/${t.key}`}>
+            {t.active && <img src={t.active} alt="" height="22" loading="lazy" decoding="async" />}
+            <b>{t.name}</b>
+            {t.tag && <img class="tagimg" src={t.tag} alt="" loading="lazy" decoding="async" />}
+            {t.pseudo && <span class="badge badge--muted" title="데이터의 노드 종류가 아니라 리더가 붙인 묶음">의사 종류</span>}
+            <span class="type__count sans muted">{t.entryCount ? `이벤트 ${t.entryCount}` : '전투·시스템 노드'}</span>
+          </a>
+          <p class="type__desc small">{t.description}</p>
+        </li>
+      ))}
+    </ul>
+
+    {topic.difficulties.length > 0 && (
+      <>
+        <div class="section-head"><h2>난이도</h2></div>
+        <div class="diffs">
+          {topic.difficulties.map((d: any) => (
+            <div class="diff" style={d.color ? `--d:${d.color}` : undefined}>
+              <span class="diff__grade sans">{d.grade}</span>
+              <span class="diff__name">{d.name}</span>
+              {d.subName && <span class="diff__sub muted small">{d.subName}</span>}
+              {d.ruleDesc && <span class="diff__rule small">{d.ruleDesc}</span>}
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+    {topic.bands.length > 0 && (
+      <>
+        <div class="section-head"><h2>분대</h2></div>
+        <ul class="list-plain bands">
+          {topic.bands.map((b: any) => (
+            <li class="band card">
+              {b.icon ? <img src={b.icon} alt="" width="40" height="40" loading="lazy" decoding="async" /> : <span class="band__ph" />}
+              <div>
+                <b>{b.name}</b>
+                <p class="small muted">{b.usage}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+
+    <p class="small muted sans note">
+      노드 종류 분류: 데이터 {topic.classification.data} · 접두사 추정 {topic.classification.prefix} · 수동 {topic.classification.override} · 미분류(우연한 만남으로 표시) {topic.classification.default} · 결과 장면은 진입 장면을 따름 {topic.classification.inherited}
+    </p>
+  </div>
+</Layout>
+
+<style>
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin-bottom: 0.5rem;
+  }
+  .stats b {
+    color: var(--color-fg);
+    font-size: 1.1rem;
+    margin-right: 0.2rem;
+  }
+  .stats a {
+    color: inherit;
+  }
+  .zones {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .zone__head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.4rem;
+  }
+  .zone__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--color-fg);
+  }
+  .zone__floor {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.45rem;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+  }
+  .zone__desc {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    flex: 1 1 20rem;
+  }
+  .zone__floor--sp {
+    border-color: var(--color-muted);
+    color: var(--color-muted);
+  }
+  .types {
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    margin-top: 0.75rem;
+  }
+  .type {
+    padding: 0.75rem 0.9rem;
+  }
+  .type__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-fg);
+    flex-wrap: wrap;
+  }
+  .type__count {
+    margin-left: auto;
+    font-size: 0.75rem;
+  }
+  .type__desc {
+    margin: 0.3rem 0 0;
+    color: var(--color-muted);
+  }
+  .diffs {
+    display: grid;
+    gap: 0.4rem;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  }
+  .diff {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-line);
+    border-left: 4px solid var(--d, var(--color-line));
+    border-radius: var(--radius);
+    background: var(--color-card);
+  }
+  .diff__grade {
+    font-size: 0.7rem;
+    color: var(--color-muted);
+  }
+  .diff__name {
+    font-weight: 600;
+  }
+  .bands {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+  .band {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.6rem 0.8rem;
+  }
+  .band p {
+    margin: 0.1rem 0 0;
+  }
+  .band__ph {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    background: var(--color-card-2);
+    flex-shrink: 0;
+  }
+  .note {
+    margin-top: 2rem;
+  }
+</style>

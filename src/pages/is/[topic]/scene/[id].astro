@@ -1,0 +1,116 @@
+---
+/**
+ * /is/<topic>/scene/<id> — 이벤트 상세: 삽화 + 본문 + 선택지 + 결과 트리 (핵심 화면)
+ * 결과 장면 id 로 들어와도 그 장면을 루트로 트리를 보여 주고, 진입 장면 링크를 제공한다.
+ */
+import Layout from '../../../../layouts/Layout.astro';
+import SceneTree from '../../../../components/SceneTree.astro';
+import { loadTopics, loadScenes } from '../../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().flatMap((t) => {
+    const { scenes } = loadScenes(t.id);
+    return Object.keys(scenes).map((id) => ({ params: { topic: t.id, id }, props: { topic: t, id } }));
+  });
+}
+const { topic, id } = Astro.props;
+const { scenes, groups } = loadScenes(topic.id);
+const scene = scenes[id];
+const nodeType = topic.nodeTypes[scene.nodeType] ?? null;
+
+// 루트(진입 장면) 찾기
+let root = scene;
+const seen = new Set<string>();
+while (root.parent && scenes[root.parent] && !seen.has(root.id)) {
+  seen.add(root.id);
+  root = scenes[root.parent];
+}
+const group = groups.find((g: any) => g.ids.includes(root.id)) ?? null;
+const siblings = group && group.ids.length > 1 ? group.ids : [];
+const idx = siblings.indexOf(root.id);
+const plain = (scene.html ?? '').replace(/<[^>]+>/g, '').slice(0, 150);
+---
+
+<Layout title={`${scene.title || scene.id} · ${topic.name}`} topic={topic.id} topicName={topic.name} image={scene.image ?? topic.kv} description={plain}>
+  <div class="container">
+    <p class="crumbs">
+      <span><a href={`/is/${topic.id}`}>{topic.name}</a></span>
+      <span><a href={`/is/${topic.id}/events`}>이벤트</a></span>
+      {nodeType && <span><a href={`/is/${topic.id}/node/${nodeType.key}`}>{nodeType.name}</a></span>}
+      <span>{scene.title || scene.id}</span>
+    </p>
+
+    {!scene.isEntry && (
+      <p class="notice sans small">
+        이 장면은 결과 장면입니다. 처음부터 보려면 <a href={`/is/${topic.id}/scene/${root.id}`}>진입 장면 「{root.title || root.id}」</a> 으로.
+      </p>
+    )}
+    {siblings.length > 1 && (
+      <div class="notice sans small">
+        같은 제목의 변형 장면 {siblings.length}개 중 {idx + 1}번째.
+        {idx > 0 && <a href={`/is/${topic.id}/scene/${siblings[idx - 1]}`}>← 이전</a>}
+        {idx < siblings.length - 1 && <a href={`/is/${topic.id}/scene/${siblings[idx + 1]}`}>다음 →</a>}
+        <details class="variants">
+          <summary>전체 목록</summary>
+          <ol class="variants__list">
+            {siblings.map((sid: string) => (
+              <li><a href={`/is/${topic.id}/scene/${sid}`} aria-current={sid === root.id ? 'page' : undefined}>{sid}</a></li>
+            ))}
+          </ol>
+        </details>
+      </div>
+    )}
+
+    <SceneTree root={scene} scenes={scenes} topic={topic} />
+
+    <aside class="legend sans small muted">
+      <p>
+        <b>읽는 법</b> — 선택지 옆 ▸ 는 결과 장면이 이어진다는 뜻, ■ 는 그 선택으로 이벤트가 끝난다는 뜻입니다. 회색 선택지는 「떠나기」.
+        효과 문구의 <span class="rt rt-x-get">초록</span>은 획득, <span class="rt rt-x-lose">붉은색</span>은 소모·손실입니다.
+        「확률」 배지가 붙은 선택지는 결과가 확률로 갈리며, 확률값은 게임 데이터에 없습니다.
+      </p>
+      <p>노드 종류(「{nodeType?.name ?? scene.nodeType}」)는 {scene.nodeTypeSource === 'data' || scene.nodeTypeSource === 'override' ? '데이터/수동 지정값입니다.' : '장면 id 규칙으로 추정한 값입니다.'}</p>
+    </aside>
+  </div>
+</Layout>
+
+<style>
+  .notice {
+    max-width: var(--measure);
+    margin: 0 auto 0.75rem;
+    padding: 0.5rem 0.8rem;
+    background: var(--color-accent-soft);
+    border-radius: var(--radius);
+  }
+  .notice a {
+    margin: 0 0.3rem;
+  }
+  .variants {
+    display: inline-block;
+    margin-left: 0.5rem;
+  }
+  .variants summary {
+    cursor: pointer;
+    display: inline;
+    color: var(--color-link);
+  }
+  .variants__list {
+    columns: 3;
+    margin: 0.3rem 0 0;
+    padding-left: 1.5rem;
+    font-size: 0.78rem;
+  }
+  .variants__list a[aria-current='page'] {
+    font-weight: 700;
+    color: var(--color-accent);
+  }
+  .legend {
+    max-width: var(--measure);
+    margin: 1.5rem auto 0;
+    border-top: 1px solid var(--color-line);
+    padding-top: 0.75rem;
+  }
+  .legend p {
+    margin: 0.3rem 0;
+  }
+</style>

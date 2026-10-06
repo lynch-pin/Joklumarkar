@@ -1,0 +1,9 @@
+{
+  "_comment": "장면 → 노드 종류 수동 보정. 키는 장면 id 또는 'prefix:<접두사>' (장면 id 에서 scene_/roN_ 과 끝 숫자를 뗀 뒤 첫 숫자 앞까지). 값은 nodeTypeData 의 키 또는 START/ENDING.",
+  "rogue_1": {},
+  "rogue_2": {},
+  "rogue_3": {},
+  "rogue_4": {},
+  "rogue_5": {},
+  "rogue_6": {}
+}

@@ -1,0 +1,187 @@
+---
+/**
+ * / — 테마 카드 목록 (KR 5개 + CN 전용 1개는 토글로)
+ */
+import Layout from '../layouts/Layout.astro';
+import { loadTopics, loadMeta } from '../lib/data.mjs';
+import { themeOf } from '../lib/themes.mjs';
+
+const topics = loadTopics();
+const meta = loadMeta();
+const kr = topics.filter((t) => !t.cnOnly);
+const cn = topics.filter((t) => t.cnOnly);
+---
+
+<Layout>
+  <div class="container">
+    <section class="intro">
+      <h1>통합전략 이벤트 리더</h1>
+      <p class="muted">
+        아크나이츠 통합전략(로그라이크)의 비전투 콘텐츠를 게임 흐름대로 읽습니다.
+        <strong>테마 → 구역 → 노드 종류 → 이벤트 장면 → 선택지 → 결과</strong>. 노드를 고르고, 선택지를 누르면 결과 본문이 펼쳐집니다.
+      </p>
+    </section>
+
+    <ul class="list-plain topics">
+      {kr.map((t) => {
+        const th = themeOf(t.id);
+        return (
+          <li class="topic" style={`--t-accent:${th.accent};--t-accent2:${th.accent2};--t-hero:${th.heroGradient}${t.kv ? `;--t-img:url("${t.kv}")` : ''}`}>
+            <a class="topic__link" href={`/is/${t.id}`}>
+              <div class="topic__bg" aria-hidden="true" />
+              <div class="topic__body">
+                <p class="topic__kicker sans">
+                  <span class="topic__orn">{th.ornament}</span> IS #{t.index} · {th.motif}
+                  {!t.hasImages && <span class="badge badge--warn">이미지 미확보</span>}
+                </p>
+                <h2 class="topic__name">{t.name}</h2>
+                <p class="topic__line" set:html={(t.lineText || '').split('\n')[0]} />
+                <p class="topic__stats sans">
+                  구역 {t.counts.zones} · 이벤트 {t.counts.entryScenes} · 선택지 {t.counts.choices} · 전투 {t.counts.stages} · 엔딩 {t.counts.endings}
+                </p>
+              </div>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+
+    {cn.length > 0 && (
+      <details class="cn">
+        <summary class="sans">CN 서버 전용 테마 보기 ({cn.length}) — 한국어 텍스트·이미지 없음</summary>
+        <ul class="list-plain topics">
+          {cn.map((t) => {
+            const th = themeOf(t.id);
+            return (
+              <li class="topic" style={`--t-accent:${th.accent};--t-accent2:${th.accent2};--t-hero:${th.heroGradient}`}>
+                <a class="topic__link" href={`/is/${t.id}`}>
+                  <div class="topic__bg" aria-hidden="true" />
+                  <div class="topic__body">
+                    <p class="topic__kicker sans"><span class="topic__orn">{th.ornament}</span> IS #{t.index} · {th.motif} <span class="badge badge--warn">CN 전용</span></p>
+                    <h2 class="topic__name">{t.name}</h2>
+                    <p class="topic__stats sans">구역 {t.counts.zones} · 이벤트 {t.counts.entryScenes} · 선택지 {t.counts.choices} · 전투 {t.counts.stages} · 엔딩 {t.counts.endings}</p>
+                  </div>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </details>
+    )}
+
+    <section class="about card">
+      <h2>이 사이트가 하는 것 / 못 하는 것</h2>
+      <ul>
+        <li>이벤트 장면과 선택지, 그 결과 장면을 <strong>분기 트리</strong>로 따라갑니다. 장면↔선택지 대응은 id 규칙으로 복원했고, 현재 전 테마에서 매칭 실패 0건입니다.</li>
+        <li>구역별 등장 노드 종류는 데이터(<code>rollNodeData</code>)가 있는 테마(IS4, IS5)만 정확하고, 그 외는 테마 전체 종류를 공통으로 보여 줍니다.</li>
+        <li>어떤 이벤트가 어떤 노드에서 뜨는지는 데이터에 없어 장면 id 접두사로 <strong>추정</strong>합니다 (카드와 장면에 "추정" 표시).</li>
+        <li>실제 맵 배치, 이벤트 출현 확률, 확률 분기의 수치는 재현하지 않습니다. 전투 시뮬레이터가 아닙니다.</li>
+        <li>이미지는 저장하지 않고 에셋 미러에서 직접 불러오며, IS5(기이한 계원)는 미러에 이미지가 없어 텍스트만 제공합니다.</li>
+      </ul>
+      <p class="small muted sans">
+        데이터: ArknightsGamedata <code>{meta.gamedataCommit ?? '-'}</code> · 생성 {meta.generatedAt.slice(0, 10)} · 장면 {meta.counts.scenes.toLocaleString()} / 선택지 {meta.counts.choices.toLocaleString()} / 컷신 {meta.counts.cutscenes}
+      </p>
+    </section>
+  </div>
+</Layout>
+
+<style>
+  .intro {
+    margin: 0 0 1.5rem;
+  }
+  .intro h1 {
+    margin-bottom: 0.25rem;
+  }
+  .topics {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  }
+  .topic {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    background: var(--t-hero);
+    color: #fff;
+    position: relative;
+    min-height: 13rem;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .topic:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--t-accent);
+  }
+  .topic__link {
+    display: flex;
+    align-items: flex-end;
+    min-height: 13rem;
+    color: inherit;
+    text-decoration: none;
+    position: relative;
+  }
+  .topic__link:hover {
+    text-decoration: none;
+  }
+  .topic__bg {
+    position: absolute;
+    inset: 0;
+    background: var(--t-img, none) center 25% / cover no-repeat;
+    opacity: 0.5;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.95) 20%, rgba(0, 0, 0, 0.2));
+  }
+  .topic__body {
+    position: relative;
+    padding: 1rem 1.1rem 1rem;
+    width: 100%;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.55));
+  }
+  .topic__kicker {
+    margin: 0 0 0.2rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .topic__orn {
+    color: var(--t-accent2);
+  }
+  .topic__name {
+    margin: 0;
+    font-size: 1.35rem;
+    color: #fff;
+  }
+  .topic__line {
+    margin: 0.3rem 0 0.4rem;
+    font-size: 0.88rem;
+    opacity: 0.9;
+    line-height: 1.5;
+  }
+  .topic__stats {
+    margin: 0;
+    font-size: 0.75rem;
+    opacity: 0.85;
+  }
+  .cn {
+    margin: 1.25rem 0;
+  }
+  .cn summary {
+    cursor: pointer;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+  .about {
+    margin-top: 2rem;
+  }
+  .about ul {
+    padding-left: 1.2rem;
+    margin: 0.25rem 0 0.75rem;
+  }
+  .about li {
+    margin: 0.25rem 0;
+  }
+</style>

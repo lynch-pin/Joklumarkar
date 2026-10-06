@@ -1,0 +1,172 @@
+---
+/**
+ * src/components/NodeMap.astro — 게임 맵 화면을 본뜬 노드 타일 행.
+ * 실제 맵은 런타임 생성이라 재현할 수 없으므로, 구역에서 등장하는 노드 종류를 한 줄로 늘어놓은 "가상 레이아웃"이다.
+ *
+ * 게임 UI 에셋(핫링크):
+ *   dungeon/img_node_bkg.png        165×94  노드 카드 배경 (밝은 회색 · 백합 문양) → 어둡게 깔고 그 위에 아이콘
+ *   dungeon/img_*_active.png        ~100×48 노드 종류 글리프 (흰색)
+ *   dungeon/img_tag_*.png           206×21  영문 라벨 띠 ("COMBAT OPS." 등) → 타일 위 작은 라벨
+ *   dungeon/noalphasplit/img_connector.png 34×12 화살표 커넥터
+ *
+ * props:
+ *   types     노드 종류 객체 배열 (topics.json nodeTypes 값)
+ *   hrefBase  타일 링크 접두사 (예: `/is/rogue_4/zone/zone_1#` 또는 `/is/rogue_4/node/`)
+ *   ui        meta.json 의 ui
+ *   showCount 타일 아래에 이벤트 수 표시
+ */
+interface Props {
+  types: any[];
+  hrefBase: string;
+  ui: any;
+  showCount?: boolean;
+  compact?: boolean;
+}
+const { types, hrefBase, ui, showCount = true, compact = false } = Astro.props;
+const vars = [ui?.nodeBkg ? `--node-bkg: url("${ui.nodeBkg}")` : '', ui?.connector ? `--node-conn: url("${ui.connector}")` : ''].filter(Boolean).join(';');
+---
+
+<ol class:list={['nodemap', 'list-plain', { 'nodemap--compact': compact }]} style={vars || undefined}>
+  {types.map((t, i) => (
+    <li class="nodemap__item">
+      {i > 0 && <span class="nodemap__link" aria-hidden="true" />}
+      <a class="node" href={`${hrefBase}${t.key}`} title={t.description}>
+        {t.tag && <img class="node__tag tagimg--onimage" src={t.tag} alt="" loading="lazy" decoding="async" />}
+        <span class="node__tile">
+          {t.glyph ? (
+            <img class:list={['node__icon', { 'node__icon--choice': t.glyphKind === 'choice' }]} src={t.glyph} alt="" loading="lazy" decoding="async" />
+          ) : (
+            <span class="node__icon node__icon--text">{t.name.slice(0, 2)}</span>
+          )}
+        </span>
+        <span class="node__label">{t.name}</span>
+        {showCount && (
+          <span class="node__count sans">{t.entryCount ? `이벤트 ${t.entryCount}` : t.key.startsWith('BATTLE') ? '전투' : ' '}</span>
+        )}
+      </a>
+    </li>
+  ))}
+</ol>
+
+<style>
+  .nodemap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem 0;
+    padding: 0.9rem 0.75rem 0.6rem;
+    background:
+      radial-gradient(ellipse at 50% 0%, var(--node-glow), transparent 70%),
+      repeating-linear-gradient(90deg, transparent 0 39px, var(--color-line) 39px 40px);
+    background-color: var(--color-card-2);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+  }
+  .nodemap__item {
+    display: flex;
+    align-items: flex-start;
+  }
+  .nodemap__link {
+    width: 1.6rem;
+    height: 0.6rem;
+    margin-top: 2.1rem;
+    background: var(--node-conn, linear-gradient(90deg, var(--color-accent), var(--color-accent-2))) center / contain no-repeat;
+    opacity: 0.8;
+    flex-shrink: 0;
+  }
+  .node {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    width: 6.8rem;
+    color: var(--color-fg);
+    text-decoration: none;
+    font-family: var(--font-sans);
+    padding-top: 0.55rem;
+  }
+  .node:hover {
+    text-decoration: none;
+  }
+  .node__tag {
+    position: absolute;
+    top: 0;
+    height: 0.6rem;
+    width: auto;
+    max-width: 6rem;
+    z-index: 1;
+    filter: drop-shadow(0 0 2px #000);
+  }
+  .node__tile {
+    position: relative;
+    width: 5.5rem;
+    height: 3.15rem;
+    display: grid;
+    place-items: center;
+    border-radius: 4px;
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.6)),
+      var(--node-bkg, linear-gradient(180deg, #4a4a4a, #222)) center / 100% 100% no-repeat;
+    background-color: #2a2622;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .node:hover .node__tile {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 0 12px var(--color-accent), 0 0 0 1px var(--color-accent) inset;
+  }
+  .node__icon {
+    height: 2rem;
+    width: auto;
+    max-width: 4.6rem;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  }
+  .node__icon--choice {
+    height: 1.8rem;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)) brightness(1.15);
+  }
+  .node__icon--text {
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+  }
+  .node__label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+    margin-top: 0.1rem;
+  }
+  .node__count {
+    font-size: 0.68rem;
+    color: var(--color-muted);
+  }
+  .nodemap--compact .node {
+    width: 5.4rem;
+    padding-top: 0.5rem;
+  }
+  .nodemap--compact .node__tile {
+    width: 4.4rem;
+    height: 2.5rem;
+  }
+  .nodemap--compact .node__icon {
+    height: 1.6rem;
+  }
+  .nodemap--compact .nodemap__link {
+    width: 1rem;
+    margin-top: 1.7rem;
+  }
+  @media (max-width: 600px) {
+    .nodemap__link {
+      display: none;
+    }
+    .node {
+      width: 5.4rem;
+    }
+  }
+</style>

@@ -1,0 +1,123 @@
+---
+/**
+ * /is/<topic>/<zone> — 구역 상세: 노드 맵 + 종류별 이벤트 카드 (이벤트 풀은 구역 공통이므로 그 점을 명시)
+ */
+import Layout from '../../../../layouts/Layout.astro';
+import TopicHero from '../../../../components/TopicHero.astro';
+import NodeMap from '../../../../components/NodeMap.astro';
+import SceneCard from '../../../../components/SceneCard.astro';
+import { loadTopics, loadScenes, loadMeta } from '../../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().flatMap((t) => [
+    ...t.zones.map((z: any, i: number) => ({ params: { topic: t.id, zone: z.id }, props: { topic: t, zone: z, floor: i + 1 } })),
+    ...t.specialZones.map((z: any) => ({ params: { topic: t.id, zone: z.id }, props: { topic: t, zone: z, floor: 0 } })),
+  ]);
+}
+const { topic, zone, floor } = Astro.props;
+const meta = loadMeta();
+const { scenes, groups } = loadScenes(topic.id);
+const types = zone.nodeTypes.map((k: string) => topic.nodeTypes[k]).filter(Boolean);
+const groupsByType = (key: string) => groups.filter((g: any) => g.nodeType === key);
+const prev = floor ? topic.zones[floor - 2] ?? null : null;
+const next = floor ? topic.zones[floor] ?? null : null;
+const floorLabel = floor ? `${floor}F` : '특수';
+---
+
+<Layout title={`${zone.name} · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={zone.description}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span>{floorLabel} {zone.name}</span></p>
+
+    <header class="zhead">
+      <h1>
+        <span class="zhead__floor sans">{floorLabel}</span> {zone.name}
+        {zone.count > 1 && <span class="badge badge--muted" title={zone.ids.join(', ')}>변형 ×{zone.count}</span>}
+      </h1>
+      <p class="zhead__desc">{zone.description}</p>
+      {zone.buffDescription && <p class="small"><b>구역 효과</b> {zone.buffDescription}</p>}
+      {zone.endingDescription && <p class="small muted"><b>이탈 문구</b> {zone.endingDescription}</p>}
+      <nav class="zhead__nav sans small">
+        {prev ? <a href={`/is/${topic.id}/zone/${prev.id}`}>← {floor - 1}F {prev.name}</a> : <span />}
+        {next ? <a href={`/is/${topic.id}/zone/${next.id}`}>{floor + 1}F {next.name} →</a> : <span />}
+      </nav>
+    </header>
+
+    <div class="section-head">
+      <h2>이 구역의 노드</h2>
+      <span class="small muted sans">{zone.nodeTypesSource === 'data' ? '게임 데이터 기준' : '구역별 데이터 없음 — 테마 전체 종류'} · 가상 배치</span>
+    </div>
+    <NodeMap types={types} hrefBase="#" ui={meta.ui} />
+
+    {types.map((t: any) => {
+      const gs = groupsByType(t.key);
+      return (
+        <section class="tsec" id={t.key}>
+          <div class="section-head">
+            <h2 class="tsec__title">
+              {t.active && <img src={t.active} alt="" height="22" loading="lazy" decoding="async" />}
+              {t.name}
+              {t.tag && <img class="tagimg" src={t.tag} alt="" loading="lazy" decoding="async" />}
+              <span class="muted small sans">{t.description}</span>
+            </h2>
+            {gs.length > 0 && <a class="more" href={`/is/${topic.id}/node/${t.key}`}>이 종류 전체 ({t.entryCount}) →</a>}
+          </div>
+          {gs.length ? (
+            <div class="grid">
+              {gs.slice(0, 12).map((g: any) => (
+                <SceneCard group={g} scenes={scenes} topic={topic} showType={false} />
+              ))}
+            </div>
+          ) : (
+            <p class="small muted sans">
+              {t.key.startsWith('BATTLE') ? (
+                <>전투 노드. 스테이지 목록은 <a href={`/is/${topic.id}/stages`}>전투</a> 페이지에.</>
+              ) : (
+                '이 종류로 분류된 이벤트 장면이 없습니다 (데이터에 없거나 다른 종류로 추정됨).'
+              )}
+            </p>
+          )}
+          {gs.length > 12 && <p class="small sans"><a href={`/is/${topic.id}/node/${t.key}`}>… 외 {gs.length - 12}묶음 더 보기</a></p>}
+        </section>
+      );
+    })}
+    <p class="small muted sans">이벤트 풀은 구역이 아니라 노드 종류에 묶여 있으므로, 여기 보이는 이벤트는 같은 종류의 노드가 있는 다른 구역에서도 등장할 수 있습니다.</p>
+  </div>
+</Layout>
+
+<style>
+  .zhead h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .zhead__floor {
+    font-size: 0.8rem;
+    padding: 0.1rem 0.5rem;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+    border-radius: 3px;
+  }
+  .zhead__desc {
+    margin: 0 0 0.5rem;
+    font-size: 1.02rem;
+  }
+  .zhead p {
+    margin: 0.2rem 0;
+  }
+  .zhead__nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.75rem;
+  }
+  .tsec {
+    margin-top: 0.5rem;
+    scroll-margin-top: 4rem;
+  }
+  .tsec__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+</style>

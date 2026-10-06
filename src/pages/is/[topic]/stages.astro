@@ -1,0 +1,81 @@
+---
+/**
+ * /is/<topic>/stages — 전투 노드 목록 (이름 + 설명 + 보스/긴급 여부)
+ */
+import Layout from '../../../layouts/Layout.astro';
+import TopicHero from '../../../components/TopicHero.astro';
+import { loadTopics, loadStages } from '../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().map((t) => ({ params: { topic: t.id }, props: { topic: t } }));
+}
+const { topic } = Astro.props;
+const stages = loadStages(topic.id);
+const kinds = [
+  { key: 'boss', label: '보스 (험난한 길)', icon: topic.nodeTypes.BATTLE_BOSS?.tag, list: stages.filter((s: any) => s.isBoss) },
+  { key: 'elite', label: '긴급 작전', icon: topic.nodeTypes.BATTLE_ELITE?.tag, list: stages.filter((s: any) => !s.isBoss && s.isElite) },
+  { key: 'normal', label: '작전', icon: topic.nodeTypes.BATTLE_NORMAL?.tag, list: stages.filter((s: any) => !s.isBoss && !s.isElite) },
+];
+---
+
+<Layout title={`전투 · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} 전투 노드 ${stages.length}개`}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span>전투</span></p>
+    <h1>전투 노드 <span class="muted small sans">{stages.length}</span></h1>
+    <div class="shortcuts">
+      {kinds.map((k) => (
+        <a href={`#${k.key}`}>{k.label} <span class="muted">{k.list.length}</span></a>
+      ))}
+    </div>
+    {kinds.map((k) => (
+      <section id={k.key} class="ksec">
+        <div class="section-head">
+          <h2>{k.label} {k.icon && <img class="tagimg tagimg--lg" src={k.icon} alt="" loading="lazy" decoding="async" />}</h2>
+        </div>
+        <table class="data">
+          <thead><tr><th>코드</th><th>이름</th><th>설명</th></tr></thead>
+          <tbody>
+            {k.list.map((s: any) => (
+              <tr id={s.id}>
+                <td class="sans small muted nowrap">{s.code}</td>
+                <td class="nowrap"><b>{s.name}</b><br /><code class="small muted">{s.id}</code></td>
+                <td>
+                  {s.description}
+                  {s.eliteDesc && <div class="elite small">⚠ {s.eliteDesc}</div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ))}
+  </div>
+</Layout>
+
+<style>
+  .ksec {
+    scroll-margin-top: 4rem;
+  }
+  .section-head h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .nowrap {
+    white-space: nowrap;
+  }
+  .elite {
+    color: var(--color-lose);
+    margin-top: 0.2rem;
+  }
+  @media (max-width: 600px) {
+    .nowrap {
+      white-space: normal;
+    }
+    table.data th:first-child,
+    table.data td:first-child {
+      display: none;
+    }
+  }
+</style>

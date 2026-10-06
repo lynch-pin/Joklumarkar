@@ -1,0 +1,71 @@
+---
+/**
+ * /is/<topic>/node/<type> — 노드 종류별 전체 이벤트 목록 (구역 횡단)
+ */
+import Layout from '../../../../layouts/Layout.astro';
+import TopicHero from '../../../../components/TopicHero.astro';
+import SceneCard from '../../../../components/SceneCard.astro';
+import { loadTopics, loadScenes } from '../../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().flatMap((t) => Object.values(t.nodeTypes).map((nt: any) => ({ params: { topic: t.id, type: nt.key }, props: { topic: t, type: nt } })));
+}
+const { topic, type } = Astro.props;
+const { scenes, groups } = loadScenes(topic.id);
+const gs = groups.filter((g: any) => g.nodeType === type.key);
+const zonesWith = topic.zones.filter((z: any) => z.nodeTypes.includes(type.key));
+const others = Object.values(topic.nodeTypes).filter((t: any) => t.entryCount > 0);
+---
+
+<Layout title={`${type.name} · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={type.description}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span><a href={`/is/${topic.id}/events`}>이벤트</a></span><span>{type.name}</span></p>
+    <header class="thead">
+      <h1>
+        {type.active && <img src={type.active} alt="" height="28" loading="eager" decoding="async" />}
+        {type.name}
+        {type.tag && <img class="tagimg tagimg--lg" src={type.tag} alt="" loading="eager" decoding="async" />}
+        {type.pseudo && <span class="badge badge--muted">의사 종류</span>}
+      </h1>
+      <p>{type.description}</p>
+      <p class="small muted sans">
+        이벤트 {type.entryCount} (장면 {type.sceneCount})
+        {zonesWith.length > 0 && <> · 등장 구역: {zonesWith.map((z: any, i: number) => <><a href={`/is/${topic.id}/zone/${z.id}`}>{z.name}</a>{i < zonesWith.length - 1 ? ', ' : ''}</>)}</>}
+      </p>
+    </header>
+
+    <div class="shortcuts">
+      <span class="shortcuts__label">종류</span>
+      {others.map((t: any) => (
+        <a href={`/is/${topic.id}/node/${t.key}`} aria-current={t.key === type.key ? 'page' : undefined}>{t.name} <span class="muted">{t.entryCount}</span></a>
+      ))}
+    </div>
+
+    {gs.length ? (
+      <div class="grid">
+        {gs.map((g: any) => (
+          <SceneCard group={g} scenes={scenes} topic={topic} showType={false} />
+        ))}
+      </div>
+    ) : (
+      <p class="muted">이 종류로 분류된 이벤트 장면이 없습니다. {type.key.startsWith('BATTLE') && <a href={`/is/${topic.id}/stages`}>전투 목록 보기</a>}</p>
+    )}
+    <p class="small muted sans note">노드 종류 대응은 장면 id 규칙으로 추정한 것이라 실제 게임과 다를 수 있습니다. 보정은 저장소의 overrides/scene-node.json 에서.</p>
+  </div>
+</Layout>
+
+<style>
+  .thead h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .thead p {
+    margin: 0.2rem 0;
+  }
+  .note {
+    margin-top: 2rem;
+  }
+</style>

@@ -1,0 +1,99 @@
+---
+/**
+ * /is/<topic>/events — 테마의 모든 이벤트(진입 장면 묶음) 목록, 노드 종류 필터 + 제목 필터(클라이언트)
+ */
+import Layout from '../../../layouts/Layout.astro';
+import TopicHero from '../../../components/TopicHero.astro';
+import SceneCard from '../../../components/SceneCard.astro';
+import { loadTopics, loadScenes } from '../../../lib/data.mjs';
+
+export function getStaticPaths() {
+  return loadTopics().map((t) => ({ params: { topic: t.id }, props: { topic: t } }));
+}
+const { topic } = Astro.props;
+const { scenes, groups } = loadScenes(topic.id);
+const types = Object.values(topic.nodeTypes).filter((t: any) => t.entryCount > 0) as any[];
+const sorted = [...groups].sort((a: any, b: any) => {
+  const ta = topic.nodeTypes[a.nodeType]?.name ?? a.nodeType;
+  const tb = topic.nodeTypes[b.nodeType]?.name ?? b.nodeType;
+  return ta.localeCompare(tb, 'ko') || a.title.localeCompare(b.title, 'ko');
+});
+---
+
+<Layout title={`이벤트 · ${topic.name}`} topic={topic.id} topicName={topic.name} image={topic.kv} description={`${topic.name} 이벤트 ${topic.counts.entryScenes}개`}>
+  <TopicHero topic={topic} compact />
+  <div class="container">
+    <p class="crumbs"><span><a href={`/is/${topic.id}`}>{topic.name}</a></span><span>이벤트</span></p>
+    <h1>이벤트 <span class="muted small sans">{topic.counts.entryScenes} (묶음 {groups.length})</span></h1>
+
+    <div class="filters sans">
+      <input id="q" type="search" placeholder="제목으로 거르기" aria-label="제목으로 거르기" />
+      <div class="shortcuts" id="type-filter">
+        <button type="button" data-type="" aria-pressed="true">전체</button>
+        {types.map((t) => (
+          <button type="button" data-type={t.key} aria-pressed="false">
+            {t.name} <span class="muted">{t.entryCount}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="grid" id="list">
+      {sorted.map((g: any) => (
+        <div class="item" data-type={g.nodeType} data-title={g.title.toLowerCase()}>
+          <SceneCard group={g} scenes={scenes} topic={topic} />
+        </div>
+      ))}
+    </div>
+    <p class="muted sans small" id="empty" hidden>조건에 맞는 이벤트가 없습니다.</p>
+  </div>
+</Layout>
+
+<script>
+  const list = document.getElementById('list')!;
+  const items = Array.from(list.querySelectorAll<HTMLElement>('.item'));
+  const q = document.getElementById('q') as HTMLInputElement;
+  const filter = document.getElementById('type-filter')!;
+  const empty = document.getElementById('empty')!;
+  let type = '';
+  const apply = () => {
+    const text = q.value.trim().toLowerCase();
+    let shown = 0;
+    for (const el of items) {
+      const ok = (!type || el.dataset.type === type) && (!text || (el.dataset.title ?? '').includes(text));
+      el.hidden = !ok;
+      if (ok) shown++;
+    }
+    empty.hidden = shown > 0;
+  };
+  filter.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button[data-type]');
+    if (!b) return;
+    type = b.dataset.type ?? '';
+    filter.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    apply();
+  });
+  q.addEventListener('input', apply);
+</script>
+
+<style>
+  .filters {
+    margin: 0.5rem 0 1rem;
+  }
+  #q {
+    font: inherit;
+    width: 100%;
+    max-width: 28rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    color: var(--color-fg);
+  }
+  .shortcuts button img {
+    vertical-align: -2px;
+  }
+  .item[hidden] {
+    display: none;
+  }
+</style>

@@ -1,0 +1,129 @@
+---
+/**
+ * src/components/SceneTree.astro — 이벤트 분기 트리 뷰어.
+ * 진입 장면을 루트로 SceneNode 를 렌더링하고, 선택지 클릭 → 결과 장면 펼치기 / 점프 / 전부 펼치기·접기 동작을 붙인다.
+ */
+import SceneNode from './SceneNode.astro';
+
+interface Props {
+  root: any;
+  scenes: Record<string, any>;
+  topic: any;
+}
+const { root, scenes, topic } = Astro.props;
+
+// 트리에 포함된 장면 수 (라벨용). 각 장면은 페이지에 한 번만 그려진다.
+const seen = new Set<string>();
+const walk = (id: string, depth: number) => {
+  if (seen.has(id) || depth > 14) return;
+  seen.add(id);
+  for (const c of scenes[id]?.choices ?? []) if (c.next && scenes[c.next]) walk(c.next, depth + 1);
+};
+walk(root.id, 0);
+const total = seen.size;
+const rendered = new Map<string, string>();
+---
+
+<div class="scene-tree" id="scene-tree">
+  <div class="scene-tree__tools sans small">
+    <span class="muted">선택지를 누르면 결과 장면이 아래에 펼쳐집니다. 장면 {total}개</span>
+    <span class="scene-tree__btns">
+      <button type="button" data-expand="all">전부 펼치기</button>
+      <button type="button" data-expand="none">접기</button>
+    </span>
+  </div>
+  <SceneNode scene={root} scenes={scenes} topic={topic} path="r" rendered={rendered} />
+</div>
+
+<script>
+  const tree = document.getElementById('scene-tree');
+  if (tree) {
+    // 요소가 보이도록 상위 .result 패널을 전부 연다
+    const revealPath = (el: HTMLElement | null) => {
+      let cur: HTMLElement | null = el;
+      while (cur && cur !== tree) {
+        if (cur.classList.contains('result')) cur.hidden = false;
+        cur = cur.parentElement;
+      }
+    };
+    const scrollTo = (el: HTMLElement) => requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+
+    tree.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const btn = target.closest<HTMLElement>('button.choice');
+      if (btn) {
+        if (btn.dataset.link) {
+          location.href = btn.dataset.link;
+          return;
+        }
+        const article = btn.closest<HTMLElement>('article.sn');
+        const list = btn.closest('ol.choices');
+        const results = article ? (Array.from(article.children).find((el) => el.classList.contains('results')) as HTMLElement | undefined) : undefined;
+        list?.querySelectorAll<HTMLElement>('button.choice').forEach((b) => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+        if (btn.dataset.jump) {
+          // 이미 그려진 장면으로 점프
+          const to = document.getElementById(btn.dataset.jump);
+          if (to) {
+            revealPath(to);
+            scrollTo(to);
+          }
+          return;
+        }
+        if (!results) return;
+        Array.from(results.children).forEach((p) => ((p as HTMLElement).hidden = true));
+        const show = btn.dataset.panel ? document.getElementById(btn.dataset.panel) : results.querySelector<HTMLElement>('.endnote');
+        if (show) {
+          show.hidden = false;
+          scrollTo(show);
+        }
+        return;
+      }
+      const tool = target.closest<HTMLElement>('button[data-expand]');
+      if (tool) {
+        const all = tool.dataset.expand === 'all';
+        tree.querySelectorAll<HTMLElement>('.result').forEach((p) => (p.hidden = !all || p.classList.contains('endnote')));
+        tree.querySelectorAll<HTMLElement>('button.choice').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      }
+    });
+
+    // 해시로 특정 장면(#sn-r-1-0)을 가리키면 그 경로를 펼친다
+    const openHash = () => {
+      const h = location.hash.replace(/^#/, '');
+      if (!h) return;
+      const el = document.getElementById(h);
+      if (el) revealPath(el);
+    };
+    openHash();
+    window.addEventListener('hashchange', openHash);
+  }
+</script>
+
+<style>
+  .scene-tree {
+    max-width: var(--measure);
+    margin: 0 auto;
+  }
+  .scene-tree__tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .scene-tree__btns {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .scene-tree__btns button {
+    padding: 0.25rem 0.7rem;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-card);
+    color: var(--color-fg);
+    cursor: pointer;
+  }
+  .scene-tree__btns button:hover {
+    border-color: var(--color-accent);
+  }
+</style>

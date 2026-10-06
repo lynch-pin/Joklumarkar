@@ -1,0 +1,335 @@
+---
+/**
+ * src/layouts/Layout.astro — 공통 레이아웃 (헤더 nav + 푸터 + 테마 토글 + 맨 위로)
+ * props: title, description?, topic?(테마 id → <html data-topic> 로 시즌별 강조색), topicName?
+ */
+import '../styles/global.css';
+import { visibleTopics } from '../lib/data.mjs';
+import { themeOf } from '../lib/themes.mjs';
+
+interface Props {
+  title?: string;
+  description?: string;
+  topic?: string | null;
+  topicName?: string | null;
+  image?: string | null;
+}
+
+const SITE_NAME = 'Aegir';
+const SITE_TAGLINE = '아크나이츠 통합전략 이벤트 리더';
+const {
+  title,
+  description = '아크나이츠 통합전략(IS) 의 구역·노드·이벤트·선택지와 결과를 게임 흐름대로 읽는 비상업적 팬 사이트',
+  topic = null,
+  topicName = null,
+  image = null,
+} = Astro.props;
+const pageTitle = title ? `${title} · ${SITE_NAME}` : `${SITE_NAME} — ${SITE_TAGLINE}`;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://aegir.lone-trail.com').href;
+
+const topics = visibleTopics();
+const current = Astro.url.pathname.replace(/\/$/, '') || '/';
+const theme = topic ? themeOf(topic) : null;
+---
+
+<!doctype html>
+<html lang="ko" data-topic={topic ?? undefined}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    {image && <meta property="og:image" content={image} />}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- 테마: 첫 페인트 전에 저장된 설정을 적용해 깜빡임 방지 -->
+    <script is:inline>
+      try {
+        const t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container site-header__inner">
+        <a class="site-brand" href="/">
+          <span class="site-brand__mark" aria-hidden="true">{theme?.ornament ?? '⬡'}</span>
+          <span>{SITE_NAME}</span>
+          <span class="site-brand__tag muted">{SITE_TAGLINE}</span>
+        </a>
+        <nav aria-label="테마" class="site-nav-wrap">
+          <ul class="list-plain site-nav">
+            {topics.map((t) => (
+              <li>
+                <a href={`/is/${t.id}`} aria-current={current.startsWith(`/is/${t.id}`) ? 'page' : undefined} title={t.name}>
+                  <span class="site-nav__num">IS{t.index}</span> {themeOf(t.id).short}
+                </a>
+              </li>
+            ))}
+            <li>
+              <a href="/search" aria-current={current === '/search' ? 'page' : undefined}>검색</a>
+            </li>
+          </ul>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="테마 전환" title="테마: 시스템">
+            <span data-theme-icon="auto">◐</span>
+            <span data-theme-icon="light">☀</span>
+            <span data-theme-icon="dark">☾</span>
+          </button>
+        </nav>
+      </div>
+      {topicName && (
+        <div class="site-topicbar">
+          <div class="container site-topicbar__inner">
+            <a href={`/is/${topic}`} class="site-topicbar__name">{topicName}</a>
+            <ul class="list-plain site-topicbar__nav">
+              <li><a href={`/is/${topic}`} aria-current={current === `/is/${topic}` ? 'page' : undefined}>구역·노드</a></li>
+              <li><a href={`/is/${topic}/events`} aria-current={current.startsWith(`/is/${topic}/events`) || current.startsWith(`/is/${topic}/node`) || current.startsWith(`/is/${topic}/scene`) ? 'page' : undefined}>이벤트</a></li>
+              <li><a href={`/is/${topic}/stages`} aria-current={current.startsWith(`/is/${topic}/stages`) ? 'page' : undefined}>전투</a></li>
+              <li><a href={`/is/${topic}/endings`} aria-current={current.startsWith(`/is/${topic}/endings`) ? 'page' : undefined}>엔딩</a></li>
+              <li><a href={`/is/${topic}/cutscenes`} aria-current={current.startsWith(`/is/${topic}/cutscene`) ? 'page' : undefined}>컷신·기록</a></li>
+              <li><a href={`/is/${topic}/items`} aria-current={current.startsWith(`/is/${topic}/items`) ? 'page' : undefined}>소장품</a></li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </header>
+
+    <script>
+      // 테마 토글: 시스템(auto) → 라이트 → 다크 → 시스템 …
+      const ORDER = ['auto', 'light', 'dark'] as const;
+      const LABEL: Record<string, string> = { auto: '시스템', light: '라이트', dark: '다크' };
+      const btn = document.getElementById('theme-toggle');
+      const current = () => {
+        const t = document.documentElement.dataset.theme;
+        return t === 'light' || t === 'dark' ? t : 'auto';
+      };
+      const render = () => {
+        const cur = current();
+        btn?.querySelectorAll<HTMLElement>('[data-theme-icon]').forEach((el) => {
+          el.hidden = el.dataset.themeIcon !== cur;
+        });
+        btn?.setAttribute('title', `테마: ${LABEL[cur]}`);
+      };
+      btn?.addEventListener('click', () => {
+        const next = ORDER[(ORDER.indexOf(current()) + 1) % ORDER.length];
+        if (next === 'auto') {
+          delete document.documentElement.dataset.theme;
+          try { localStorage.removeItem('theme'); } catch {}
+        } else {
+          document.documentElement.dataset.theme = next;
+          try { localStorage.setItem('theme', next); } catch {}
+        }
+        render();
+      });
+      render();
+    </script>
+
+    <main class="site-main">
+      <slot />
+    </main>
+
+    <button class="to-top" id="to-top" type="button" aria-label="맨 위로" title="맨 위로" hidden>↑</button>
+    <script>
+      const toTop = document.getElementById('to-top')!;
+      const update = () => {
+        toTop.hidden = window.scrollY < 400;
+      };
+      window.addEventListener('scroll', update, { passive: true });
+      toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+      update();
+    </script>
+
+    <footer class="site-footer">
+      <div class="container small muted">
+        <p>
+          비상업적 팬 사이트. 아크나이츠(明日方舟)의 모든 텍스트·이미지·명칭의 권리는 Hypergryph / Yostar 에 있습니다.
+          이미지는 저장하지 않고 <a href="https://github.com/ArknightsAssets/ArknightsAssets">ArknightsAssets</a> 에서 직접 불러옵니다.
+          게임 데이터: <a href="https://github.com/ArknightsAssets/ArknightsGamedata">ArknightsAssets/ArknightsGamedata</a>
+          · 자매 사이트: <a href="https://fables.lone-trail.com">Furnaceside Fables</a>
+        </p>
+        <p>
+          노드 종류와 이벤트의 대응은 게임 데이터에 없어 장면 id 규칙으로 <strong>추정</strong>한 것입니다. 실제 맵 배치·출현 확률은 재현하지 않습니다.
+        </p>
+      </div>
+    </footer>
+
+    <style>
+      .site-header {
+        border-bottom: 1px solid var(--color-line);
+        background: var(--color-card);
+        position: relative;
+        z-index: 5;
+      }
+      .site-header__inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-top: 0.6rem;
+        padding-bottom: 0.6rem;
+        flex-wrap: wrap;
+      }
+      .site-brand {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        font-weight: 700;
+        color: var(--color-fg);
+        letter-spacing: 0.02em;
+        font-size: 1.1rem;
+      }
+      .site-brand:hover {
+        text-decoration: none;
+      }
+      .site-brand__mark {
+        color: var(--color-accent);
+        font-size: 1.1em;
+      }
+      .site-brand__tag {
+        font-family: var(--font-sans);
+        font-weight: 400;
+        font-size: 0.8rem;
+      }
+      .site-nav-wrap {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        min-width: 0;
+      }
+      .site-nav {
+        display: flex;
+        gap: 0.25rem 1rem;
+        font-family: var(--font-sans);
+        font-size: 0.9rem;
+        flex-wrap: wrap;
+      }
+      .site-nav a {
+        color: var(--color-muted);
+        white-space: nowrap;
+      }
+      .site-nav a[aria-current='page'] {
+        color: var(--color-accent);
+        font-weight: 600;
+      }
+      .site-nav__num {
+        font-size: 0.72em;
+        opacity: 0.7;
+        letter-spacing: 0.05em;
+      }
+      .theme-toggle {
+        font-size: 1rem;
+        line-height: 1;
+        width: 2rem;
+        height: 2rem;
+        border: 1px solid var(--color-line);
+        border-radius: 50%;
+        background: var(--color-card);
+        color: var(--color-fg);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .theme-toggle:hover {
+        border-color: var(--color-accent);
+      }
+      .site-topicbar {
+        border-top: 1px solid var(--color-line);
+        background: var(--color-bg);
+      }
+      .site-topicbar__inner {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        padding-top: 0.4rem;
+        padding-bottom: 0.4rem;
+        font-family: var(--font-sans);
+        font-size: 0.9rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .site-topicbar__inner::-webkit-scrollbar {
+        display: none;
+      }
+      .site-topicbar__name {
+        font-weight: 700;
+        color: var(--color-accent);
+        white-space: nowrap;
+      }
+      .site-topicbar__nav {
+        display: flex;
+        gap: 1rem;
+      }
+      .site-topicbar__nav a {
+        color: var(--color-muted);
+        white-space: nowrap;
+        padding: 0.2rem 0;
+        border-bottom: 2px solid transparent;
+      }
+      .site-topicbar__nav a[aria-current='page'] {
+        color: var(--color-fg);
+        border-bottom-color: var(--color-accent);
+      }
+      .site-main {
+        flex: 1;
+        padding: 1.5rem 0 3rem;
+      }
+      .to-top {
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 50%;
+        border: 1px solid var(--color-line);
+        background: var(--color-card);
+        color: var(--color-fg);
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0.85;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        z-index: 10;
+      }
+      .to-top:hover {
+        opacity: 1;
+        border-color: var(--color-accent);
+      }
+      .site-footer {
+        border-top: 1px solid var(--color-line);
+        padding: 1.5rem 0;
+      }
+      @media (max-width: 720px) {
+        .site-brand__tag {
+          display: none;
+        }
+        .site-header__inner {
+          flex-wrap: nowrap;
+        }
+        .site-nav-wrap {
+          flex: 1;
+          justify-content: flex-end;
+        }
+        .site-nav {
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scrollbar-width: none;
+          gap: 0.8rem;
+          padding-bottom: 0.1rem;
+        }
+        .site-nav::-webkit-scrollbar {
+          display: none;
+        }
+      }
+    </style>
+  </body>
+</html>

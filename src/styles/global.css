@@ -1,0 +1,437 @@
+/* ---------------------------------------------------------------------------
+   src/styles/global.css — 공통 스타일.
+   팔레트는 vim jellybeans 기반 다크/라이트(자매 프로젝트와 통일)이고,
+   테마(통합전략 시즌) 페이지에서는 <html data-topic="rogue_N"> 으로 강조색을 그 시즌의 모티프에 맞춘다.
+   --------------------------------------------------------------------------- */
+:root {
+  --font-serif: 'Noto Serif KR', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
+  --font-sans: 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* jellybeans 원색 */
+  --jb-bg: #151515;
+  --jb-bg-alt: #1c1c1c;
+  --jb-fg: #e8e8d3;
+  --jb-comment: #888888;
+  --jb-yellow: #fad07a;
+  --jb-orange: #ffb964;
+  --jb-red: #cf6a4c;
+  --jb-blue: #8197bf;
+  --jb-sky: #8fbfdc;
+  --jb-green: #99ad6a;
+  --jb-purple: #c6b6ee;
+  --jb-search-bg: #302028;
+
+  /* 라이트 테마 (기본) */
+  --color-bg: #efeee6;
+  --color-fg: #1c1c1c;
+  --color-muted: #605958;
+  --color-line: #d4d1c4;
+  --color-accent: #b5522f;
+  --color-accent-2: #8a6a1f;
+  --color-accent-soft: #f3e2c9;
+  --color-link: #4a6396;
+  --color-card: #f7f6ef;
+  --color-card-2: #ebe9df;
+  --color-badge-bg: #dfe6f2;
+  --color-badge-fg: #34486f;
+  --color-get: #1f7a4d;
+  --color-lose: #b3362b;
+  --color-hero: linear-gradient(135deg, #d9d4c5 0%, #efeee6 100%);
+  --node-glow: rgba(0, 0, 0, 0.08);
+
+  --measure: 44rem;
+  --measure-wide: 72rem;
+  --radius: 6px;
+  --radius-lg: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: var(--jb-bg);
+    --color-fg: var(--jb-fg);
+    --color-muted: var(--jb-comment);
+    --color-line: #333333;
+    --color-accent: var(--jb-yellow);
+    --color-accent-2: var(--jb-orange);
+    --color-accent-soft: var(--jb-search-bg);
+    --color-link: var(--jb-blue);
+    --color-card: var(--jb-bg-alt);
+    --color-card-2: #242424;
+    --color-badge-bg: #2a3040;
+    --color-badge-fg: var(--jb-sky);
+    --color-get: #7fd49a;
+    --color-lose: #f08a74;
+    --color-hero: linear-gradient(135deg, #1c1c1c 0%, #2a2622 100%);
+    --node-glow: rgba(255, 255, 255, 0.06);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --color-bg: var(--jb-bg);
+  --color-fg: var(--jb-fg);
+  --color-muted: var(--jb-comment);
+  --color-line: #333333;
+  --color-accent: var(--jb-yellow);
+  --color-accent-2: var(--jb-orange);
+  --color-accent-soft: var(--jb-search-bg);
+  --color-link: var(--jb-blue);
+  --color-card: var(--jb-bg-alt);
+  --color-card-2: #242424;
+  --color-badge-bg: #2a3040;
+  --color-badge-fg: var(--jb-sky);
+  --color-get: #7fd49a;
+  --color-lose: #f08a74;
+  --color-hero: linear-gradient(135deg, #1c1c1c 0%, #2a2622 100%);
+  --node-glow: rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+
+/* ---------------------------------------------------------------------------
+   테마별 강조색. 라이트는 종이 위에 올린 톤, 다크는 그 시즌의 무대 조명.
+   rogue_1 극장·진홍 / rogue_2 심해·청록 / rogue_3 설원·은빛 / rogue_4 용광로·잉걸불 / rogue_5 염국·주홍과 옥 / rogue_6 수해·이끼
+   --------------------------------------------------------------------------- */
+:root[data-topic='rogue_1'] {
+  --color-accent: #a81d2e;
+  --color-accent-2: #a67c22;
+  --color-accent-soft: #f4dcdc;
+  --color-hero: linear-gradient(135deg, #2a0a10 0%, #5a1020 55%, #1a0a0c 100%);
+}
+:root[data-topic='rogue_2'] {
+  --color-accent: #137c88;
+  --color-accent-2: #2d5fb3;
+  --color-accent-soft: #d6ecef;
+  --color-hero: linear-gradient(160deg, #04121c 0%, #0b3650 55%, #03101a 100%);
+}
+:root[data-topic='rogue_3'] {
+  --color-accent: #3c7f98;
+  --color-accent-2: #6b7b86;
+  --color-accent-soft: #dcecf3;
+  --color-hero: linear-gradient(160deg, #0c1a24 0%, #2a4a5e 55%, #0b141b 100%);
+}
+:root[data-topic='rogue_4'] {
+  --color-accent: #c2491a;
+  --color-accent-2: #b8781e;
+  --color-accent-soft: #f6dfd0;
+  --color-hero: linear-gradient(160deg, #140e0b 0%, #4a2412 55%, #120c0a 100%);
+}
+:root[data-topic='rogue_5'] {
+  --color-accent: #b7301f;
+  --color-accent-2: #2f7f62;
+  --color-accent-soft: #f5dcd6;
+  --color-hero: linear-gradient(160deg, #1a0e0c 0%, #5c1e18 50%, #12302a 100%);
+}
+:root[data-topic='rogue_6'] {
+  --color-accent: #3a7d46;
+  --color-accent-2: #5b6b3a;
+  --color-accent-soft: #dcebdc;
+  --color-hero: linear-gradient(160deg, #0a110d 0%, #1d3a28 55%, #080d0a 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-topic='rogue_1']:not([data-theme='light']) { --color-accent: #e24a5c; --color-accent-2: #d9ad4b; --color-accent-soft: #3a141a; --color-card: #1d1517; --color-card-2: #27191c; --color-line: #3a2a2d; --color-bg: #150f10; }
+  :root[data-topic='rogue_2']:not([data-theme='light']) { --color-accent: #2fc4d6; --color-accent-2: #6d9ff0; --color-accent-soft: #0e2a36; --color-card: #0f1b24; --color-card-2: #14242f; --color-line: #22343f; --color-bg: #0a1319; }
+  :root[data-topic='rogue_3']:not([data-theme='light']) { --color-accent: #a9dcee; --color-accent-2: #d6dee6; --color-accent-soft: #1b2c36; --color-card: #141e25; --color-card-2: #1a2730; --color-line: #2a3a44; --color-bg: #0e161b; }
+  :root[data-topic='rogue_4']:not([data-theme='light']) { --color-accent: #ff8a3d; --color-accent-2: #ffb347; --color-accent-soft: #3a1c0e; --color-card: #1c1512; --color-card-2: #261b16; --color-line: #3a2a22; --color-bg: #141009; }
+  :root[data-topic='rogue_5']:not([data-theme='light']) { --color-accent: #ea5a48; --color-accent-2: #4fb892; --color-accent-soft: #3a1512; --color-card: #1c1412; --color-card-2: #261a17; --color-line: #3a2a26; --color-bg: #140f0e; }
+  :root[data-topic='rogue_6']:not([data-theme='light']) { --color-accent: #7fd283; --color-accent-2: #b7c77a; --color-accent-soft: #14281a; --color-card: #10190f; --color-card-2: #162116; --color-line: #27352a; --color-bg: #0b120d; }
+}
+:root[data-topic='rogue_1'][data-theme='dark'] { --color-accent: #e24a5c; --color-accent-2: #d9ad4b; --color-accent-soft: #3a141a; --color-card: #1d1517; --color-card-2: #27191c; --color-line: #3a2a2d; --color-bg: #150f10; }
+:root[data-topic='rogue_2'][data-theme='dark'] { --color-accent: #2fc4d6; --color-accent-2: #6d9ff0; --color-accent-soft: #0e2a36; --color-card: #0f1b24; --color-card-2: #14242f; --color-line: #22343f; --color-bg: #0a1319; }
+:root[data-topic='rogue_3'][data-theme='dark'] { --color-accent: #a9dcee; --color-accent-2: #d6dee6; --color-accent-soft: #1b2c36; --color-card: #141e25; --color-card-2: #1a2730; --color-line: #2a3a44; --color-bg: #0e161b; }
+:root[data-topic='rogue_4'][data-theme='dark'] { --color-accent: #ff8a3d; --color-accent-2: #ffb347; --color-accent-soft: #3a1c0e; --color-card: #1c1512; --color-card-2: #261b16; --color-line: #3a2a22; --color-bg: #141009; }
+:root[data-topic='rogue_5'][data-theme='dark'] { --color-accent: #ea5a48; --color-accent-2: #4fb892; --color-accent-soft: #3a1512; --color-card: #1c1412; --color-card-2: #261a17; --color-line: #3a2a26; --color-bg: #140f0e; }
+:root[data-topic='rogue_6'][data-theme='dark'] { --color-accent: #7fd283; --color-accent-2: #b7c77a; --color-accent-soft: #14281a; --color-card: #10190f; --color-card-2: #162116; --color-line: #27352a; --color-bg: #0b120d; }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--color-fg);
+  background: var(--color-bg);
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.3;
+  font-weight: 600;
+  margin: 0 0 0.5em;
+}
+h1 {
+  font-size: 1.7rem;
+}
+h2 {
+  font-size: 1.3rem;
+}
+h3 {
+  font-size: 1.1rem;
+}
+img {
+  max-width: 100%;
+}
+button {
+  font: inherit;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--measure-wide);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+.container--narrow {
+  max-width: var(--measure);
+}
+.muted {
+  color: var(--color-muted);
+}
+.small {
+  font-size: 0.85em;
+}
+.sans {
+  font-family: var(--font-sans);
+}
+.list-plain {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+
+/* 배지 */
+.badge {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.3em 0.55em;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.badge--muted {
+  background: var(--color-card-2);
+  color: var(--color-muted);
+}
+.badge--info {
+  background: var(--color-badge-bg);
+  color: var(--color-badge-fg);
+}
+.badge--warn {
+  background: #f1e4b8;
+  color: #6a4f00;
+}
+:root[data-theme='dark'] .badge--warn {
+  background: #3a3010;
+  color: #e9cf74;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .badge--warn {
+    background: #3a3010;
+    color: #e9cf74;
+  }
+}
+
+/* 숏컷/필터 칩 */
+.shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 1rem;
+}
+.shortcuts[hidden] {
+  display: none;
+}
+.shortcuts a,
+.shortcuts button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  cursor: pointer;
+  text-decoration: none;
+}
+.shortcuts a:hover,
+.shortcuts button:hover {
+  border-color: var(--color-accent);
+  text-decoration: none;
+}
+.shortcuts [aria-pressed='true'],
+.shortcuts [aria-current='page'] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.shortcuts__label {
+  align-self: center;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  margin-right: 0.25rem;
+}
+
+/* 인게임 리치 텍스트: <@ro4.get> 초록, <@ro4.lose> 붉은 계열 */
+.rt {
+  font-weight: 600;
+}
+[class*='rt-'][class$='-get'],
+[class*='-get '],
+.rt[class*='-get'] {
+  color: var(--color-get);
+}
+.rt[class*='-lose'] {
+  color: var(--color-lose);
+}
+.rt[class*='-kw'],
+.rt[class*='-rem'] {
+  color: var(--color-accent);
+}
+
+/* 게임 UI 노드 태그 라벨 (dungeon/img_tag_*: 206×21 의 흰 글자 띠). 라이트 테마에서는 반전 */
+.tagimg {
+  display: inline-block;
+  height: 0.7rem;
+  width: auto;
+  vertical-align: middle;
+  filter: invert(0.75) brightness(0.6);
+}
+.tagimg--lg {
+  height: 0.95rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tagimg {
+    filter: none;
+    opacity: 0.85;
+  }
+}
+:root[data-theme='dark'] .tagimg {
+  filter: none;
+  opacity: 0.85;
+}
+.tagimg--onimage {
+  filter: none !important;
+  opacity: 0.95;
+}
+
+/* 썸네일 */
+.thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--color-card-2);
+  border-radius: var(--radius);
+}
+.thumb--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  background: var(--color-hero);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 섹션 헤더 */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 2rem 0 0.75rem;
+}
+.section-head h2 {
+  margin: 0;
+}
+.section-head a.more {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+}
+
+/* 카드 그리드 */
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+.grid--tight {
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+}
+
+/* 빵부스러기 */
+.crumbs {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin: 0 0 1rem;
+}
+.crumbs a {
+  color: var(--color-muted);
+}
+.crumbs span + span::before {
+  content: '›';
+  margin: 0 0.4em;
+  opacity: 0.6;
+}
+
+/* 표 */
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+table.data th,
+table.data td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--color-line);
+  vertical-align: top;
+}
+table.data th {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* 모바일: 폭이 좁은 경우 글자 크기 */
+@media (max-width: 600px) {
+  html {
+    font-size: 16px;
+  }
+  h1 {
+    font-size: 1.45rem;
+  }
+}
