@@ -100,6 +100,9 @@ const theme = topic ? themeOf(topic) : null;
               <li><a href={`/is/${topic}/cutscenes`} aria-current={current.startsWith(`/is/${topic}/cutscene`) ? 'page' : undefined}>컷신·기록</a></li>
               <li><a href={`/is/${topic}/items`} aria-current={current.startsWith(`/is/${topic}/items`) ? 'page' : undefined}>소장품</a></li>
             </ul>
+            <form class="site-topicbar__search" action={`/is/${topic}/search`} method="get" role="search">
+              <input type="search" name="q" placeholder="이벤트 이름 검색" aria-label={`${topicName} 이벤트 이름 검색`} autocomplete="off" />
+            </form>
           </div>
         </div>
       )}
@@ -279,6 +282,24 @@ const theme = topic ? themeOf(topic) : null;
         color: var(--color-fg);
         border-bottom-color: var(--color-accent);
       }
+      .site-topicbar__search {
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+      .site-topicbar__search input {
+        font: inherit;
+        font-size: 0.85rem;
+        width: 11rem;
+        padding: 0.3rem 0.6rem;
+        border: 1px solid var(--color-line);
+        border-radius: 999px;
+        background: var(--color-card);
+        color: var(--color-fg);
+      }
+      .site-topicbar__search input:focus {
+        outline: none;
+        border-color: var(--color-accent);
+      }
       .site-main {
         flex: 1;
         padding: 1.5rem 0 3rem;
@@ -311,6 +332,9 @@ const theme = topic ? themeOf(topic) : null;
       @media (max-width: 720px) {
         .site-brand__tag {
           display: none;
+        }
+        .site-topicbar__search input {
+          width: 7.5rem;
         }
         .site-header__inner {
           flex-wrap: nowrap;

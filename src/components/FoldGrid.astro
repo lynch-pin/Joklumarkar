@@ -1,0 +1,80 @@
+---
+/**
+ * src/components/FoldGrid.astro — 카드가 많으면 앞의 limit 개만 보이고 나머지는 접어 두는 그리드.
+ * 자식은 .grid 의 직계 요소여야 한다. 자바스크립트가 꺼져 있으면 전부 보인다.
+ *
+ * props:
+ *   count  자식 수 (버튼 문구용)
+ *   limit  처음에 보여 줄 수 (기본 12)
+ *   label  펼치기 버튼에 붙는 항목 이름 (기본 '이벤트')
+ */
+interface Props {
+  count: number;
+  limit?: number;
+  label?: string;
+  class?: string;
+}
+const { count, limit = 12, label = '이벤트', class: cls } = Astro.props;
+const folded = count > limit;
+---
+
+<div class:list={['fold', cls]} data-fold={folded ? limit : undefined}>
+  <div class="grid fold__grid">
+    <slot />
+  </div>
+  {folded && (
+    <button type="button" class="fold__btn sans" data-fold-btn aria-expanded="false">
+      <span data-more>나머지 {label} {count - limit}개 펼치기 ▾</span>
+      <span data-less hidden>접기 ▴</span>
+    </button>
+  )}
+</div>
+
+<script>
+  // 접힌 그리드: limit 뒤의 자식을 숨기고 버튼으로 토글한다 (페이지당 한 번만 실행)
+  for (const box of document.querySelectorAll<HTMLElement>('[data-fold]')) {
+    const limit = Number(box.dataset.fold);
+    const kids = Array.from(box.querySelector('.fold__grid')?.children ?? []) as HTMLElement[];
+    const btn = box.querySelector<HTMLButtonElement>('[data-fold-btn]');
+    if (!btn) continue;
+    const set = (open: boolean) => {
+      kids.forEach((k, i) => (k.hidden = !open && i >= limit));
+      btn.setAttribute('aria-expanded', String(open));
+      btn.querySelector<HTMLElement>('[data-more]')!.hidden = open;
+      btn.querySelector<HTMLElement>('[data-less]')!.hidden = !open;
+    };
+    set(false);
+    btn.addEventListener('click', () => {
+      const open = btn.getAttribute('aria-expanded') !== 'true';
+      set(open);
+      if (!open) box.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    // 해시가 접힌 카드를 가리키면 펼친다
+    if (location.hash && kids.some((k) => k.hidden && k.querySelector(location.hash))) set(true);
+  }
+</script>
+
+<style>
+  .fold {
+    scroll-margin-top: 4rem;
+  }
+  /* 카드가 display:flex 라 hidden 속성이 지는 것을 막는다 */
+  .fold__grid > :global([hidden]) {
+    display: none !important;
+  }
+  .fold__btn {
+    display: block;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.6rem;
+    border: 1px dashed var(--color-line);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    color: var(--color-accent);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .fold__btn:hover {
+    border-color: var(--color-accent);
+  }
+</style>

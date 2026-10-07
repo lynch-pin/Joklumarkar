@@ -45,6 +45,7 @@ src/
     /is/<topic>/zone/<zone>/<type>  층 안의 노드 하나: 전투면 맵 프리뷰 카드, 아니면 층 전용 → 공통 이벤트
     /is/<topic>/node/<type>    노드 종류별 이벤트 전체
     /is/<topic>/events         이벤트 전체 (종류·제목 필터)
+    /is/<topic>/search         테마 안 이벤트 이름 검색 (테마 바 검색창)
     /is/<topic>/scene/<id>     이벤트 상세 (핵심 화면)
     /is/<topic>/stages         전투 노드
     /is/<topic>/endings        엔딩 + 결말 기록

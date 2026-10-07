@@ -8,6 +8,7 @@ import Layout from '../../../../../layouts/Layout.astro';
 import TopicHero from '../../../../../components/TopicHero.astro';
 import SceneCard from '../../../../../components/SceneCard.astro';
 import StageCard from '../../../../../components/StageCard.astro';
+import FoldGrid from '../../../../../components/FoldGrid.astro';
 import { loadTopics, loadScenes, loadStages } from '../../../../../lib/data.mjs';
 
 export function getStaticPaths() {
@@ -71,11 +72,11 @@ const title = `${type.name} · ${floorLabel} ${zone.name} · ${topic.name}`;
             이 구역에 고정된 {type.name} 스테이지가 없습니다 (특수 구역이거나 스테이지 id 에 구역 번호가 없는 테마). <a href={`/is/${topic.id}/stages#${kind}`}>테마 전체 전투 목록</a>에서 확인하세요.
           </p>
         )}
-        <div class="grid">
+        <FoldGrid count={floorStages.length} label="전투">
           {floorStages.map((s: any) => (
             <StageCard stage={s} />
           ))}
-        </div>
+        </FoldGrid>
       </section>
     ) : (
       <>
@@ -85,11 +86,11 @@ const title = `${type.name} · ${floorLabel} ${zone.name} · ${topic.name}`;
               <h2>이 층 전용 <span class="muted small sans">{own.length}</span></h2>
               <span class="small muted sans">장면 id 에 층이 들어 있어 이 층에서만 나오는 이벤트</span>
             </div>
-            <div class="grid">
+            <FoldGrid count={own.length}>
               {own.map((g: any) => (
                 <SceneCard group={g} scenes={scenes} topic={topic} showType={false} />
               ))}
-            </div>
+            </FoldGrid>
           </section>
         )}
         <section>
@@ -98,11 +99,11 @@ const title = `${type.name} · ${floorLabel} ${zone.name} · ${topic.name}`;
             <span class="small muted sans">{type.name} 노드에 묶인 이벤트. 같은 노드가 있는 다른 층에서도 나옵니다</span>
           </div>
           {common.length === 0 && <p class="muted small sans">이 노드 종류로 분류된 이벤트가 없습니다.</p>}
-          <div class="grid">
+          <FoldGrid count={common.length}>
             {common.map((g: any) => (
               <SceneCard group={g} scenes={scenes} topic={topic} showType={false} />
             ))}
-          </div>
+          </FoldGrid>
         </section>
       </>
     )}
