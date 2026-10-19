@@ -13,34 +13,70 @@ export const ASSET_BASE =
   process.env.ASSET_BASE ??
   'https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets/cn/assets/torappu/dynamicassets';
 
-let index = null; // Set<상대 경로> | false(인덱스 없음)
-function loadIndex() {
-  if (index !== null) return index;
-  const file = path.join(gamedataDir(), 'asset-index.txt');
-  if (!fs.existsSync(file)) {
-    index = false;
-    return index;
+/**
+ * 이미지 소스 목록 (앞에서부터 찾는다).
+ *  - aa     ArknightsAssets: 노드 UI(dungeon/choicepic) 등 옛 에셋. 2025-04 이후 갱신이 멈춰 IS5·IS6 이미지는 없다
+ *  - akgcc  akgcc/arkdata: 같은 torappu 경로 구조. 삽화(avg/images)·배경·아이템 아이콘(itempic)을 최신까지 보유
+ *  - fexli  fexli/ArknightsResource: 평탄한 폴더 구조. 맵 프리뷰(mapreview/)·소장품 아이콘(rogueitem/)
+ * 각 소스는 scripts/sync-data.sh 가 만든 경로 인덱스(gamedata/<index>)로 존재 여부를 확인한다.
+ * 인덱스 조회는 대소문자를 무시한다 (pic_rogue_6_KV1 vs pic_rogue_6_kv1).
+ */
+const STRIP = 'assets/torappu/dynamicassets/';
+const SOURCES = [
+  { name: 'aa', base: ASSET_BASE, index: 'asset-index.txt', strip: STRIP },
+  { name: 'akgcc', base: 'https://raw.githubusercontent.com/akgcc/arkdata/main/assets/torappu/dynamicassets', index: 'asset-index-akgcc.txt', strip: STRIP },
+  {
+    name: 'fexli',
+    base: 'https://raw.githubusercontent.com/fexli/ArknightsResource/main',
+    index: 'asset-index-fexli.txt',
+    strip: '',
+    // torappu 상대 경로 → fexli 폴더 이름
+    rewrite: (rel) => {
+      if (rel.startsWith('arts/ui/stage/mappreviews/')) return rel.replace('arts/ui/stage/mappreviews/', 'mapreview/');
+      if (rel.startsWith('arts/ui/rogueliketopic/itempic/')) return rel.replace('arts/ui/rogueliketopic/itempic/', 'rogueitem/');
+      return null;
+    },
+  },
+];
+
+const indexes = new Map(); // name → Map<소문자 경로, 실제 경로> | false(인덱스 없음)
+function indexOf(src) {
+  if (indexes.has(src.name)) return indexes.get(src.name);
+  const file = path.join(gamedataDir(), src.index);
+  let idx = false;
+  if (fs.existsSync(file)) {
+    idx = new Map();
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+      const p = line.trim();
+      if (!p) continue;
+      const rel = src.strip && p.startsWith(src.strip) ? p.slice(src.strip.length) : p;
+      idx.set(rel.toLowerCase(), rel);
+    }
   }
-  index = new Set(
-    fs
-      .readFileSync(file, 'utf8')
-      .split('\n')
-      .filter(Boolean)
-      .map((p) => p.trim().replace(/^assets\/torappu\/dynamicassets\//, '')),
-  );
-  return index;
+  indexes.set(src.name, idx);
+  return idx;
 }
 
-/** 인덱스가 있고 경로가 없으면 null, 아니면 URL */
+/** 어느 소스든 경로가 있으면 그 URL, 아무 데도 없으면 null. 인덱스가 하나도 없으면 검증 없이 기본 소스 URL */
 export function assetUrl(relPath) {
   if (!relPath) return null;
-  const idx = loadIndex();
-  if (idx && !idx.has(relPath)) return null;
-  return `${ASSET_BASE}/${relPath}`;
+  let anyIndex = false;
+  for (const src of SOURCES) {
+    const idx = indexOf(src);
+    if (!idx) continue;
+    anyIndex = true;
+    const rel = src.rewrite ? src.rewrite(relPath) : relPath;
+    if (!rel) continue;
+    const hit = idx.get(rel.toLowerCase());
+    if (hit) return `${src.base}/${hit}`;
+  }
+  return anyIndex ? null : `${ASSET_BASE}/${relPath}`;
 }
 
 /** 인덱스 보유 여부 (빌드 로그용) */
-export const hasAssetIndex = () => loadIndex() !== false;
+export const hasAssetIndex = () => SOURCES.some((s) => indexOf(s) !== false);
+/** 소스별 인덱스 크기 (빌드 로그용) */
+export const assetIndexSizes = () => Object.fromEntries(SOURCES.map((s) => [s.name, indexOf(s) ? indexOf(s).size : 0]));
 
 const ROGUE_UI = 'arts/ui/rogueliketopic';
 

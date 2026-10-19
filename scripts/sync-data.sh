@@ -48,19 +48,35 @@ fi
 echo "[sync] gamedata 완료: $(git -C "$REPO_DIR" rev-parse --short HEAD)"
 
 # 에셋 경로 인덱스: 파일 목록만 받아 이미지 존재 여부 검사에 쓴다 (수 GB 레포를 받지 않음)
-ASSET_DIR="$GAMEDATA_DIR/assets-index-repo"
-if [[ ! -d "$ASSET_DIR/.git" ]]; then
-  rm -rf "$ASSET_DIR"
-  retry 4 git clone --filter=tree:0 --depth 1 --no-checkout --branch "$ASSETS_REF" "$ASSETS_REPO" "$ASSET_DIR"
-else
-  retry 4 git -C "$ASSET_DIR" fetch --depth 1 origin "$ASSETS_REF"
-  git -C "$ASSET_DIR" update-ref HEAD FETCH_HEAD
-fi
-git -C "$ASSET_DIR" ls-tree -r --name-only HEAD -- \
+#   index_repo <이름> <레포 URL> <브랜치> <출력 파일> <ls-tree 경로...>
+index_repo() {
+  local name="$1" repo="$2" ref="$3" out="$4"; shift 4
+  local dir="$GAMEDATA_DIR/assets-index-$name"
+  if [[ ! -d "$dir/.git" ]]; then
+    rm -rf "$dir"
+    retry 4 git clone --filter=tree:0 --depth 1 --no-checkout --branch "$ref" "$repo" "$dir"
+  else
+    retry 4 git -C "$dir" fetch --depth 1 origin "$ref"
+    git -C "$dir" update-ref HEAD FETCH_HEAD
+  fi
+  git -C "$dir" ls-tree -r --name-only HEAD -- "$@" > "$out"
+  echo "[sync] 에셋 인덱스 $name: $(wc -l < "$out") 개 경로 ($(git -C "$dir" log -1 --format=%cs))"
+}
+# 기존 clone 디렉터리 이름 호환 (assets-index-repo → assets-index-aa)
+[[ -d "$GAMEDATA_DIR/assets-index-repo/.git" && ! -d "$GAMEDATA_DIR/assets-index-aa" ]] && mv "$GAMEDATA_DIR/assets-index-repo" "$GAMEDATA_DIR/assets-index-aa"
+
+# 1) ArknightsAssets: 노드 UI 등. 2025-04 이후 갱신 없음
+index_repo aa "$ASSETS_REPO" "$ASSETS_REF" "$ASSET_INDEX" \
   assets/torappu/dynamicassets/avg/images \
   assets/torappu/dynamicassets/avg/backgrounds \
   assets/torappu/dynamicassets/arts/ui/rogueliketopic \
-  assets/torappu/dynamicassets/arts/ui/stage/mappreviews \
-  > "$ASSET_INDEX"
-echo "[sync] 에셋 인덱스: $(wc -l < "$ASSET_INDEX") 개 경로"
+  assets/torappu/dynamicassets/arts/ui/stage/mappreviews
+# 2) akgcc/arkdata: 같은 경로 구조, 최신 삽화·아이템 아이콘
+index_repo akgcc "${ASSETS2_REPO:-https://github.com/akgcc/arkdata}" "${ASSETS2_REF:-main}" "$GAMEDATA_DIR/asset-index-akgcc.txt" \
+  assets/torappu/dynamicassets/avg/images \
+  assets/torappu/dynamicassets/avg/backgrounds \
+  assets/torappu/dynamicassets/arts/ui/rogueliketopic
+# 3) fexli/ArknightsResource: 맵 프리뷰·소장품 아이콘 (평탄한 폴더)
+index_repo fexli "${ASSETS3_REPO:-https://github.com/fexli/ArknightsResource}" "${ASSETS3_REF:-main}" "$GAMEDATA_DIR/asset-index-fexli.txt" \
+  mapreview rogueitem
 du -sh "$GAMEDATA_DIR"

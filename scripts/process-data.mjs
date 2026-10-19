@@ -35,6 +35,7 @@ import {
   avgImage,
   rarityIcon,
   hasAssetIndex,
+  assetIndexSizes,
   ASSET_BASE,
   stageMapPreview,
 } from '../src/lib/assets.mjs';
@@ -186,6 +187,7 @@ const meta = {
   })(),
   assetBase: ASSET_BASE,
   assetIndex: hasAssetIndex(),
+  assetIndexSizes: assetIndexSizes(),
   // 게임 UI 조각 (노드 배경·커넥터 등). 페이지가 gamedata/ 를 읽지 않도록 여기서 URL 로 확정한다.
   ui: {
     nodeBkg: dungeonImage('img_node_bkg'),
@@ -698,6 +700,11 @@ for (const topicId of [...topicIds].sort(naturalSort)) {
     translationInfo = { strings: st.strings, hit: st.hit, miss: st.miss, cutscenes: cutDone, cutscenesTotal: Object.keys(cutscenes).length };
     log(`번역 적용 — 문자열 적중 ${st.hit} / 미번역 ${st.miss} (고유 ${st.missed.size}), 컷신 ${cutDone}/${Object.keys(cutscenes).length}`);
     if (st.missed.size) log('  미번역 예시:', [...st.missed.keys()].slice(0, 5).map((x) => x.slice(0, 30)).join(' | '));
+    // DUMP_MISSES=<dir> 이면 미번역 원문을 <dir>/<topic>.json 으로 떨군다 (번역 파일 작성용)
+    if (process.env.DUMP_MISSES) {
+      fs.mkdirSync(process.env.DUMP_MISSES, { recursive: true });
+      fs.writeFileSync(path.join(process.env.DUMP_MISSES, `${topicId}.json`), JSON.stringify(Object.fromEntries(st.missed), null, 1));
+    }
   }
 
   // 층별 집계: 이 층의 전투 수, 이 층 전용 이벤트(묶음) 수 (stages 가 만들어진 뒤에)

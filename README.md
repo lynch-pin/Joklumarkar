@@ -26,7 +26,7 @@ npm test
 
 ```
 scripts/
-  sync-data.sh         ArknightsGamedata 의 roguelike 경로 6개만 sparse-checkout (gamedata/repo) + ArknightsAssets 파일 목록(gamedata/asset-index.txt)
+  sync-data.sh         ArknightsGamedata 의 roguelike 경로 6개만 sparse-checkout (gamedata/repo) + 이미지 미러 3곳의 파일 목록(gamedata/asset-index*.txt)
   process-data.mjs     roguelike_topic_table.json + AVG 스크립트 → src/data/*.json
 src/
   lib/i18n.mjs         kr 우선 → cn 폴백 (테마 단위), 경로 헬퍼
@@ -69,7 +69,7 @@ public/CNAME               커스텀 도메인
 
 ## 알려진 한계
 
-- IS5(쉐이의 기이한 계원)·IS6(CN 전용)은 에셋 미러에 이미지가 없어 텍스트 + 플레이스홀더로 보여 준다. 미러에 올라오면 sync 때 자동 반영된다.
+- 이미지 미러는 세 곳을 순서대로 찾는다: ArknightsAssets(노드 UI 등, 2025-04 이후 갱신 없음) → akgcc/arkdata(삽화·아이템 아이콘, 같은 경로 구조) → fexli/ArknightsResource(맵 프리뷰·소장품 아이콘). 새 테마 이미지는 뒤의 두 미러에서 온다.
 - 실제 맵 배치, 이벤트 출현 확률, 확률 분기 수치는 데이터에 없어 재현하지 않는다.
 - 구역 지도 배경·구역 아이콘 이미지는 미러에 없어 테마 그라데이션으로 대신한다.
 - 이미지는 전부 핫링크이며 저장소에 커밋하지 않는다. 원작 데이터(`gamedata/`)와 가공 산출물(`src/data/`)도 커밋하지 않는다.
